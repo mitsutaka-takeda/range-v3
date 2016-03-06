@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.3)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
 
-project(Range-v3 CXX)
+project(Range-v3)
 
 find_package(Doxygen)
 find_package(Git)
@@ -12,7 +12,7 @@ find_package(Git)
 if(RANGES_CXX_STD)
 else()
   # Defaults to C++11 if not set:
-  set(RANGES_CXX_STD 11) 
+  set(RANGES_CXX_STD 11)
 endif()
 
 enable_testing()
@@ -25,7 +25,15 @@ else()
   set(MEMORYCHECK_COMMAND_OPTIONS "--trace-children=yes --leak-check=full")
 endif()
 
-include_directories(include)
+add_library(
+  range-v3
+  INTERFACE
+  )
+target_include_directories(
+  range-v3
+  INTERFACE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
 
 # Clang/C2 will blow up with various parts of the standard library
 # if compiling with -std less than c++14.
@@ -36,33 +44,69 @@ if(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
   set(RANGES_CXX_STD 14)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${RANGES_CXX_STD} -ftemplate-backtrace-limit=0")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weverything -Werror -pedantic-errors")                           
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations -Wno-error=deprecated")                  
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic")        
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-stack-address -Wno-undef")                  
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-unused-parameter")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-weak-vtables -Wno-padded")                       
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-global-constructors -Wno-exit-time-destructors") 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shorten-64-to-32 -Wno-sign-conversion") 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-prototypes -Wno-missing-variable-declarations") 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shadow -Wno-old-style-cast") 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-documentation -Wno-documentation-unknown-command") 
-  set(CMAKE_CXX_FLAGS_DEBUG "-O0 -fno-inline -g3 -fstack-protector-all")
-  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -g0 -march=native -mtune=native -DNDEBUG")
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+  add_compile_options(
+    -std=c++${RANGES_CXX_STD}
+    -ftemplate-backtrace-limit=0
+    -Weverything
+    -Werror
+    -pedantic-errors
+    -Wno-error=deprecated-declarations
+    -Wno-error=deprecated
+    -Wno-c++98-compat
+    -Wno-c++98-compat-pedantic
+    -Wno-return-stack-address
+    -Wno-unused-variable
+    -Wno-unused-parameter
+    -Wno-weak-vtables
+    -Wno-padded
+    -Wno-global-constructors
+    -Wno-exit-time-destructors
+    -Wno-shorten-64-to-32
+    -Wno-sign-conversion
+    -Wno-missing-prototypes
+    -Wno-missing-variable-declarations
+    -Wno-shadow
+    -Wno-old-style-cast
+    -Wno-documentation
+    -Wno-documentation-unknown-command
+    $<$<CONFIG:Debug>:-O0>
+    $<$<CONFIG:Debug>:-fno-inline>
+    $<$<CONFIG:Debug>:-g3>
+    $<$<CONFIG:Debug>:-fstack-protector-all>
+    $<$<CONFIG:Release>:-Ofast>
+    $<$<CONFIG:Release>:-g0>
+    $<$<CONFIG:Release>:-march=native>
+    $<$<CONFIG:Release>:-mtune=native>
+    $<$<CONFIG:Release>:-DNDEBUG>
+    )
 elseif(CMAKE_COMPILER_IS_GNUCXX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${RANGES_CXX_STD} -ftemplate-backtrace-limit=0")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Werror -pedantic-errors")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
-  set(CMAKE_CXX_FLAGS_DEBUG "-O0 -fno-inline -g3 -fstack-protector-all")
-  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -g0 -march=native -mtune=native -DNDEBUG")
+  add_compile_options(
+    -std=c++${RANGES_CXX_STD}
+    -ftemplate-backtrace-limit=0
+    -Wall
+    -Wextra
+    -pedantic
+    -Werror
+    -pedantic-errors
+    -Wno-error=deprecated-declarations
+    -Wno-missing-field-initializers
+    -Wno-unused-parameter
+    $<$<CONFIG:Debug>:-O0>
+    $<$<CONFIG:Debug>:-fno-inline>
+    $<$<CONFIG:Debug>:-g3>
+    $<$<CONFIG:Debug>:-fstack-protector-all>
+    $<$<CONFIG:Release>:-Ofast>
+    $<$<CONFIG:Release>:-g0>
+    $<$<CONFIG:Release>:-march=native>
+    $<$<CONFIG:Release>:-mtune=native>
+    $<$<CONFIG:Release>:-DNDEBUG>
+    )
 # else()
 #   message(FATAL_ERROR "Unknown compiler.")
 endif()
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(doc)
 
@@ -71,7 +115,7 @@ if(BIICODE)
 
     string(REPLACE " " ";" TARGET_CXX_FLAGS         ${CMAKE_CXX_FLAGS})
     string(REPLACE " " ";" TARGET_CXX_FLAGS_DEBUG   ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE " " ";" TARGET_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})     
+    string(REPLACE " " ";" TARGET_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 
     target_compile_options(${BII_BLOCK_TARGET} INTERFACE ${TARGET_CXX_FLAGS}
                            $<$<CONFIG:Debug>:${TARGET_CXX_FLAGS_DEBUG}>
@@ -95,14 +139,16 @@ endmacro()
 # Test all headers
 if(NOT RANGE_V3_NO_HEADER_CHECK)
   include(CheckIncludeFileCXX)
-  file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS "${CMAKE_SOURCE_DIR}/include/*.hpp")
+  file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
   range_v3_list_remove_glob(RANGE_V3_PUBLIC_HEADERS GLOB_RECURSE
-    "${CMAKE_SOURCE_DIR}/include/range/v3/detail/re_enable_warnings.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/range/v3/detail/re_enable_warnings.hpp"
     )
 
+  set(CMAKE_REQUIRED_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include")
+  set(CMAKE_REQUIRED_FLAGS "-std=c++${RANGES_CXX_STD}")
   foreach(_header IN LISTS RANGE_V3_PUBLIC_HEADERS)
-    file(RELATIVE_PATH _relative "${CMAKE_SOURCE_DIR}/include" "${_header}")
-    check_include_file_cxx("${_relative}" ${_relative}_FOUND "-I${CMAKE_SOURCE_DIR}/include")
+    file(RELATIVE_PATH _relative "${CMAKE_CURRENT_SOURCE_DIR}/include" "${_header}")
+    check_include_file_cxx("${_relative}" ${_relative}_FOUND)
     if(NOT ${_relative}_FOUND)
       message(FATAL_ERROR "Compilation of header ${_relative} failed")
     endif()
