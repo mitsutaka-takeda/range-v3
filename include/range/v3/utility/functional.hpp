@@ -170,7 +170,7 @@ namespace ranges
         struct as_function_fn
         {
         private:
-        #if __apple_build_version__
+        #if defined(__apple_build_version__)
             // Work around a bug in earlier versions of libc++ that
             // shipped with Xcode
             template<typename MemFn>
