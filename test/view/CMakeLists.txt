@@ -11,8 +11,8 @@ add_test(test.view.any_view, view.any_view)
 add_executable(view.bounded bounded.cpp)
 add_test(test.view.bounded, view.bounded)
 
-add_executable(view.chunk chunk.cpp)
-add_test(test.view.chunk, view.chunk)
+# add_executable(view.chunk chunk.cpp)
+# add_test(test.view.chunk, view.chunk)
 
 add_executable(view.concat concat.cpp)
 add_test(test.view.concat, view.concat)
@@ -23,8 +23,8 @@ add_test(test.view.const, view.const)
 add_executable(view.counted counted.cpp)
 add_test(test.view.counted, view.counted)
 
-add_executable(view.cycle cycle.cpp)
-add_test(test.view.cycle, view.cycle)
+# add_executable(view.cycle cycle.cpp)
+# add_test(test.view.cycle, view.cycle)
 
 add_executable(view.delimit delimit.cpp)
 add_test(test.view.delimit, view.delimit)
