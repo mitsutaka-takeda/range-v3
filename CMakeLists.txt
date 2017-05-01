@@ -85,12 +85,12 @@ range_v3_append_flag(RANGE_V3_HAS_MTUNE_NATIVE "-mtune=native")
 
 # Test all headers
 file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS
-                  RELATIVE "${CMAKE_SOURCE_DIR}/include"
-                  "${CMAKE_SOURCE_DIR}/include/*.hpp")
+                  RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
 				  
 # Add header files as sources to fix MSVS 2017 not finding source during debugging
 file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS_ABSOLUTE
-                  "${CMAKE_SOURCE_DIR}/include/*.hpp")
+                  "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
 
 include(TestHeaders)
 if(RANGE_V3_NO_HEADER_CHECK)
@@ -101,7 +101,7 @@ endif()
 generate_standalone_header_tests(EXCLUDE_FROM_ALL MASTER_TARGET headers HEADERS ${RANGE_V3_PUBLIC_HEADERS})
 
 # Grab the range-v3 version numbers:
-include(${CMAKE_SOURCE_DIR}/Version.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/Version.cmake)
 set(RANGE_V3_VERSION ${RANGE_V3_MAJOR}.${RANGE_V3_MINOR}.${RANGE_V3_PATCHLEVEL})
 
 # Try to build a new version.hpp
