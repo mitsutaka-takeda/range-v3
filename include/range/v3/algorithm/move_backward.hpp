@@ -35,7 +35,7 @@ namespace ranges
         struct move_backward_fn
         {
             template<typename I, typename S, typename O,
-                CONCEPT_REQUIRES_(BidirectionalIterator<I>() && IteratorRange<I, S>() &&
+                CONCEPT_REQUIRES_(BidirectionalIterator<I>() && Sentinel<S, I>() &&
                     BidirectionalIterator<O>() && IndirectlyMovable<I, O>())>
             tagged_pair<tag::in(I), tag::out(O)> operator()(I begin, S end_, O out) const
             {
@@ -46,10 +46,10 @@ namespace ranges
             }
 
             template<typename Rng, typename O,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(BidirectionalRange<Rng>() && BidirectionalIterator<O>() &&
                     IndirectlyMovable<I, O>())>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)> operator()(Rng &&rng, O out) const
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)> operator()(Rng &&rng, O out) const
             {
                 return (*this)(begin(rng), end(rng), std::move(out));
             }
@@ -57,11 +57,7 @@ namespace ranges
 
         /// \sa `move_backward_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& move_backward = static_const<with_braced_init_args<move_backward_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<move_backward_fn>, move_backward)
         /// @}
     } // namespace v3
 } // namespace ranges

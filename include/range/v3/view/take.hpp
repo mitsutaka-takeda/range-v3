@@ -14,14 +14,16 @@
 #ifndef RANGES_V3_VIEW_TAKE_HPP
 #define RANGES_V3_VIEW_TAKE_HPP
 
-#include <algorithm>
 #include <type_traits>
 #include <range/v3/range_fwd.hpp>
-#include <range/v3/range_traits.hpp>
 #include <range/v3/range_concepts.hpp>
-#include <range/v3/view_interface.hpp>
-#include <range/v3/utility/static_const.hpp>
+#include <range/v3/range_traits.hpp>
+#include <range/v3/view_adaptor.hpp>
+#include <range/v3/algorithm/min.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
+#include <range/v3/utility/counted_iterator.hpp>
 #include <range/v3/utility/functional.hpp>
+#include <range/v3/utility/static_const.hpp>
 #include <range/v3/view/take_exactly.hpp>
 #include <range/v3/view/view.hpp>
 
@@ -31,67 +33,63 @@ namespace ranges
     {
         template<typename Rng>
         struct take_view
-          : view_facade<take_view<Rng>, finite>
+          : view_adaptor<take_view<Rng>, Rng, finite>
         {
         private:
-            friend range_access;
-            using difference_type_ = range_difference_t<Rng>;
-            Rng rng_;
-            difference_type_ n_;
+            friend struct ranges::range_access;
+            range_difference_type_t<Rng> n_ = 0;
+
+            template<bool IsConst, typename T>
+            using add_const_if = meta::if_c<IsConst, T const, T>;
+            template<bool IsConst>
+            using CI = counted_iterator<iterator_t<add_const_if<IsConst, Rng>>>;
+            template<bool IsConst>
+            using S = sentinel_t<add_const_if<IsConst, Rng>>;
 
             template<bool IsConst>
-            struct sentinel
+            struct adaptor : adaptor_base
             {
-            public:
-                using BaseRng = meta::invoke<meta::add_const_if_c<IsConst>, Rng>;
-                using base_iterator = range_iterator_t<BaseRng>;
-                using base_sentinel = range_sentinel_t<BaseRng>;
-                base_sentinel sent_;
-            public:
-                sentinel() = default;
-                sentinel(base_sentinel sent)
-                  : sent_(sent)
-                {}
-                bool equal(detail::counted_cursor<base_iterator> const &that) const
+                CI<IsConst> begin(add_const_if<IsConst, take_view> &rng) const
                 {
-                    return 0 == that.count() || that.base() == sent_;
+                    return {ranges::begin(rng.base()), rng.n_};
                 }
             };
 
-            detail::counted_cursor<range_iterator_t<Rng>> begin_cursor()
+            template<bool IsConst>
+            struct sentinel_adaptor : adaptor_base
             {
-                return {ranges::begin(rng_), n_};
+                bool empty(CI<IsConst> const &that, S<IsConst> const &sent) const
+                {
+                    return 0 == that.count() || sent == that.base();
+                }
+            };
+
+            adaptor<false> begin_adaptor()
+            {
+                return {};
+            }
+            sentinel_adaptor<false> end_adaptor()
+            {
+                return {};
             }
             template<typename BaseRng = Rng,
                 CONCEPT_REQUIRES_(Range<BaseRng const>())>
-            detail::counted_cursor<range_iterator_t<BaseRng const>> begin_cursor() const
+            adaptor<true> begin_adaptor()
             {
-                return {ranges::begin(rng_), n_};
-            }
-            sentinel<false> end_cursor()
-            {
-                return {ranges::end(rng_)};
+                return {};
             }
             template<typename BaseRng = Rng,
                 CONCEPT_REQUIRES_(Range<BaseRng const>())>
-            sentinel<true> end_cursor() const
+            sentinel_adaptor<true> end_adaptor() const
             {
-                return {ranges::end(rng_)};
+                return {};
             }
         public:
             take_view() = default;
-            take_view(Rng rng, difference_type_ n)
-              : rng_(std::move(rng)), n_(n)
+            take_view(Rng rng, range_difference_type_t<Rng> n)
+              : view_adaptor<take_view<Rng>, Rng, finite>(std::move(rng)), n_{n}
             {
-                RANGES_ASSERT(n >= 0);
-            }
-            Rng & base()
-            {
-                return rng_;
-            }
-            Rng const & base() const
-            {
-                return rng_;
+                RANGES_EXPECT(n >= 0);
             }
         };
 
@@ -104,19 +102,19 @@ namespace ranges
 
                 template<typename Rng,
                     CONCEPT_REQUIRES_(!SizedRange<Rng>() && !is_infinite<Rng>())>
-                static take_view<all_t<Rng>> invoke_(Rng && rng, range_difference_t<Rng> n)
+                static take_view<all_t<Rng>> invoke_(Rng && rng, range_difference_type_t<Rng> n)
                 {
-                    return {all(std::forward<Rng>(rng)), n};
+                    return {all(static_cast<Rng&&>(rng)), n};
                 }
 
                 template<typename Rng,
                     CONCEPT_REQUIRES_(SizedRange<Rng>() || is_infinite<Rng>())>
-                static auto invoke_(Rng && rng, range_difference_t<Rng> n)
+                static auto invoke_(Rng && rng, range_difference_type_t<Rng> n)
                 RANGES_DECLTYPE_AUTO_RETURN
                 (
                     take_exactly(
-                        std::forward<Rng>(rng),
-                        is_infinite<Rng>() ? n : std::min(n, distance(rng)))
+                        static_cast<Rng&&>(rng),
+                        is_infinite<Rng>() ? n : ranges::min(n, distance(rng)))
                 )
 
                 template<typename Int, CONCEPT_REQUIRES_(Integral<Int>())>
@@ -138,10 +136,10 @@ namespace ranges
 
             public:
                 template<typename Rng, CONCEPT_REQUIRES_(InputRange<Rng>())>
-                auto operator()(Rng && rng, range_difference_t<Rng> n) const
+                auto operator()(Rng && rng, range_difference_type_t<Rng> n) const
                 RANGES_DECLTYPE_AUTO_RETURN
                 (
-                    take_fn::invoke_(std::forward<Rng>(rng), n)
+                    take_fn::invoke_(static_cast<Rng&&>(rng), n)
                 )
 
             #ifndef RANGES_DOXYGEN_INVOKED
@@ -159,13 +157,12 @@ namespace ranges
 
             /// \relates take_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& take = static_const<view<take_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<take_fn>, take)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::take_view)
 
 #endif

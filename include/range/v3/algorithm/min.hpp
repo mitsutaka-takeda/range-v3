@@ -32,30 +32,20 @@ namespace ranges
         /// @{
         struct min_fn
         {
-        private:
-            template<typename T, typename C, typename P>
-            constexpr const T& min2_impl(const T &a, const T &b, C&& pred, P&& proj) const
-            {
-                return pred(proj(b), proj(a)) ? b : a;
-            }
-
-        public:
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>, typename V = iterator_value_t<I>,
+                typename I = iterator_t<Rng>, typename V = value_type_t<I>,
                 CONCEPT_REQUIRES_(InputRange<Rng>() && Copyable<V>() &&
-                    IndirectCallableRelation<C, Projected<I, P>>())>
-            RANGES_CXX14_CONSTEXPR V operator()(Rng &&rng, C pred_ = C{}, P proj_ = P{}) const
+                    IndirectRelation<C, projected<I, P>>())>
+            RANGES_CXX14_CONSTEXPR V operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
-                auto && pred = as_function(pred_);
-                auto && proj = as_function(proj_);
                 auto begin = ranges::begin(rng);
                 auto end = ranges::end(rng);
-                RANGES_ASSERT(begin != end);
+                RANGES_EXPECT(begin != end);
                 V result = *begin;
                 while(++begin != end)
                 {
                     auto && tmp = *begin;
-                    if(pred(proj(tmp), proj(result)))
+                    if(invoke(pred, invoke(proj, tmp), invoke(proj, result)))
                         result = (decltype(tmp) &&) tmp;
                 }
                 return result;
@@ -63,20 +53,16 @@ namespace ranges
 
             template<typename T, typename C = ordered_less, typename P = ident,
                 CONCEPT_REQUIRES_(
-                    IndirectCallableRelation<C, Projected<const T *, P>>())>
-            constexpr const T& operator()(const T &a, const T &b, C pred = C{}, P proj = P{}) const
+                    IndirectRelation<C, projected<const T *, P>>())>
+            constexpr T const &operator()(T const &a, T const &b, C pred = C{}, P proj = P{}) const
             {
-                return min2_impl(a, b, as_function(pred), as_function(proj));
+                return invoke(pred, invoke(proj, b), invoke(proj, a)) ? b : a;
             }
         };
 
         /// \sa `min_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& min = static_const<with_braced_init_args<min_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<min_fn>, min)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -33,22 +33,20 @@ namespace ranges
         struct none_of_fn
         {
             template<typename I, typename S, typename F, typename P = ident,
-                CONCEPT_REQUIRES_(InputIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallablePredicate<F, Projected<I, P>>())>
+                CONCEPT_REQUIRES_(InputIterator<I>() && Sentinel<S, I>() &&
+                    IndirectPredicate<F, projected<I, P>>())>
             bool
             operator()(I first, S last, F pred, P proj = P{}) const
             {
-                auto &&ipred = as_function(pred);
-                auto &&iproj = as_function(proj);
                 for(; first != last; ++first)
-                    if(ipred(iproj(*first)))
+                    if(invoke(pred, invoke(proj, *first)))
                         return false;
                 return true;
             }
 
             template<typename Rng, typename F, typename P = ident,
-                typename I = range_iterator_t<Rng>,
-                CONCEPT_REQUIRES_(InputRange<Rng>() && IndirectCallablePredicate<F, Projected<I, P>>())>
+                typename I = iterator_t<Rng>,
+                CONCEPT_REQUIRES_(InputRange<Rng>() && IndirectPredicate<F, projected<I, P>>())>
             bool
             operator()(Rng &&rng, F pred, P proj = P{}) const
             {
@@ -58,11 +56,7 @@ namespace ranges
 
         /// \sa `none_of_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& none_of = static_const<with_braced_init_args<none_of_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<none_of_fn>, none_of)
         /// @}
     } // inline namespace v3
 } // namespace ranges

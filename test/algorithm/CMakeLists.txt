@@ -1,4 +1,3 @@
-
 add_executable(alg.adjacent_find adjacent_find.cpp)
 add_test(test.alg.adjacent_find, alg.adjacent_find)
 
@@ -50,6 +49,9 @@ add_test(test.alg.find_first_of, alg.find_first_of)
 add_executable(alg.for_each for_each.cpp)
 add_test(test.alg.for_each, alg.for_each)
 
+add_executable(alg.for_each_n for_each_n.cpp)
+add_test(test.alg.for_each_n, alg.for_each_n)
+
 add_executable(alg.generate generate.cpp)
 add_test(test.alg.generate, alg.generate)
 
@@ -85,7 +87,6 @@ add_test(test.alg.is_heap_until3, alg.is_heap_until3)
 
 add_executable(alg.is_heap_until4 is_heap_until4.cpp)
 add_test(test.alg.is_heap_until4, alg.is_heap_until4)
-
 
 add_executable(alg.is_partitioned is_partitioned.cpp)
 add_test(test.alg.is_partitioned, alg.is_partitioned)
@@ -168,9 +169,6 @@ add_test(test.alg.prev_permutation alg.prev_permutation)
 add_executable(alg.push_heap push_heap.cpp)
 add_test(test.alg.push_heap alg.push_heap)
 
-add_executable(alg.random_shuffle random_shuffle.cpp)
-add_test(test.alg.random_shuffle, alg.random_shuffle)
-
 add_executable(alg.remove remove.cpp)
 add_test(test.alg.remove, alg.remove)
 
@@ -206,6 +204,9 @@ add_test(test.alg.rotate, alg.rotate)
 
 add_executable(alg.rotate_copy rotate_copy.cpp)
 add_test(test.alg.rotate_copy, alg.rotate_copy)
+
+add_executable(alg.sample sample.cpp)
+add_test(test.alg.sample, alg.sample)
 
 add_executable(alg.search search.cpp)
 add_test(test.alg.search, alg.search)
@@ -314,3 +315,6 @@ add_test(test.alg.unique_copy, alg.unique_copy)
 
 add_executable(alg.upper_bound upper_bound.cpp)
 add_test(test.alg.upper_bound, alg.upper_bound)
+
+add_executable(alg.sort_n_with_buffer sort_n_with_buffer.cpp)
+add_test(test.alg.sort_n_with_buffer alg.sort_n_with_buffer)

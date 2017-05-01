@@ -1,3 +1,18 @@
+// Range v3 library
+//
+//  Copyright Gonzalo Brito Gadeschi 2015
+//
+//  Use, modification and distribution is subject to the
+//  Boost Software License, Version 1.0. (See accompanying
+//  file LICENSE_1_0.txt or copy at
+//  http://www.boost.org/LICENSE_1_0.txt)
+//
+// Project home: https://github.com/ericniebler/range-v3
+
+#include <range/v3/detail/config.hpp>
+
+#if RANGES_CXX_CONSTEXPR >= RANGES_CXX_CONSTEXPR_14
+
 #include <range/v3/begin_end.hpp>
 #include <range/v3/empty.hpp>
 #include <range/v3/back.hpp>
@@ -7,38 +22,35 @@
 #include "array.hpp"
 #include "test_iterators.hpp"
 
-#ifdef RANGES_CXX_GREATER_THAN_11
-
-
 // This is necessary since advance is a customization point, std::advance is imported for
 // non-range-v3 iterators, and it is not constexpr:
 template<typename T, typename I = random_access_iterator<T>>
 RANGES_CXX14_CONSTEXPR
-void advance(random_access_iterator<T> & i, ranges::iterator_difference_t<I> n) {
+void advance(random_access_iterator<T> & i, ranges::difference_type_t<I> n) {
     ranges::adl_advance_detail::advance_impl(i, n, ranges::iterator_concept<I>{});
 }
 
 template<typename T, typename I = bidirectional_iterator<T>>
 RANGES_CXX14_CONSTEXPR
-void advance(bidirectional_iterator<T> & i, ranges::iterator_difference_t<I> n) {
+void advance(bidirectional_iterator<T> & i, ranges::difference_type_t<I> n) {
     ranges::adl_advance_detail::advance_impl(i, n, ranges::iterator_concept<I>{});
 }
 
 template<typename T, typename I = forward_iterator<T>>
 RANGES_CXX14_CONSTEXPR
-void advance(forward_iterator<T> & i, ranges::iterator_difference_t<I> n) {
+void advance(forward_iterator<T> & i, ranges::difference_type_t<I> n) {
     ranges::adl_advance_detail::advance_impl(i, n, ranges::iterator_concept<I>{});
 }
 
 template<typename T, typename I = input_iterator<T>>
 RANGES_CXX14_CONSTEXPR
-void advance(input_iterator<T> & i, ranges::iterator_difference_t<I> n) {
+void advance(input_iterator<T> & i, ranges::difference_type_t<I> n) {
     ranges::adl_advance_detail::advance_impl(i, n, ranges::iterator_concept<I>{});
 }
 
 // Test sequence 1,2,3,4
 template<typename It>
-RANGES_CXX14_CONSTEXPR auto test_it_back(It beg, It end,
+RANGES_CXX14_CONSTEXPR auto test_it_back(It, It end,
     ranges::concepts::BidirectionalIterator*) -> bool
 {
     auto end_m1_2 = It{ranges::prev(end, 1)};
@@ -182,6 +194,7 @@ RANGES_CXX14_CONSTEXPR auto test_non_member_f(Sequence1234&& a) -> bool {
     if (ranges::empty(a)) { return false; }
     if (ranges::front(a) != 1) { return false; }
     if (ranges::back(a) != 4) { return false; }
+    if (ranges::index(a, 2) != 3) { return false; }
     if (ranges::at(a, 2) != 3) { return false; }
     if (ranges::size(a) != 4) { return false; }
     return true;
@@ -238,25 +251,22 @@ RANGES_CXX14_CONSTEXPR auto test_init_list() -> bool {
     if (!test_crits(a)) { return false; }
     if (!test_non_member_f(a)) { return false; }
 
-    // std::initializer_list live in std:: so ADL will always pick std::swap
-    // std::initializer_list<int> b{5, 6, 7, 8};
-    // ranges::swap(a, b);
-    // if (ranges::at(a, 0) != 5 || ranges::at(b, 0) != 1
-    //     || ranges::at(a, 3) != 8 || ranges::at(b, 3) != 4) {
-    //     return false;
-    // }
+    std::initializer_list<int> b{5, 6, 7, 8};
+    ranges::swap(a, b);
+    if (ranges::at(a, 0) != 5 || ranges::at(b, 0) != 1
+        || ranges::at(a, 3) != 8 || ranges::at(b, 3) != 4) {
+        return false;
+    }
 
     return true;
 }
-#endif
 
 int main() {
-
-#ifdef RANGES_CXX_GREATER_THAN_11
     static_assert(test_array(), "");
     static_assert(test_c_array(), "");
     static_assert(test_init_list(), "");
-#endif
-
-    return 0;
 }
+
+#else
+int main() {}
+#endif

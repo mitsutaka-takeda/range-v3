@@ -113,7 +113,7 @@ namespace ranges
             template<typename T>
             constexpr meta::if_<detail::is_dangling<T>, dangling<>, T> operator()(T &&t) const
             {
-                return std::forward<T>(t);
+                return static_cast<T&&>(t);
             }
             template<typename T, typename U>
             constexpr std::pair<result_t<T>, result_t<U>> operator()(std::pair<T, U> &p) const
@@ -173,7 +173,7 @@ namespace ranges
             template<typename T>
             constexpr T operator()(T && t) const
             {
-                return detail::forward<T>(t);
+                return static_cast<T&&>(t);
             }
             /// \overload
             template<typename T>
@@ -186,19 +186,13 @@ namespace ranges
         /// \ingroup group-core
         /// \return \c t.get_unsafe() if \p t is an instance of `ranges::dangling`; otherwise,
         /// return \p t.
-        namespace
-        {
-            constexpr auto&& get_unsafe = static_const<get_unsafe_fn>::value;
-        }
+        RANGES_INLINE_VARIABLE(get_unsafe_fn, get_unsafe)
 
         /// \ingroup group-core
         /// \return the result of replacing all \c ranges::dangling<T> objects with
         /// \c ranges::dangling<void>, introspecting \c std::pair and \c std::tuple
         /// objects recursively.
-        namespace
-        {
-            constexpr auto&& sanitize = static_const<sanitize_fn>::value;
-        }
+        RANGES_INLINE_VARIABLE(sanitize_fn, sanitize)
     }
 }
 

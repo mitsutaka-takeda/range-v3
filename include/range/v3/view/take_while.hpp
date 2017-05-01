@@ -18,6 +18,7 @@
 #include <functional>
 #include <type_traits>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_adaptor.hpp>
@@ -42,29 +43,29 @@ namespace ranges
         {
         private:
             friend range_access;
-            semiregular_t<function_type<Pred>> pred_;
+            semiregular_t<Pred> pred_;
 
             template<bool IsConst>
             struct sentinel_adaptor
               : adaptor_base
             {
             private:
-                semiregular_ref_or_val_t<function_type<Pred>, IsConst> pred_;
+                semiregular_ref_or_val_t<Pred, IsConst> pred_;
             public:
                 sentinel_adaptor() = default;
-                sentinel_adaptor(semiregular_ref_or_val_t<function_type<Pred>, IsConst> pred)
+                sentinel_adaptor(semiregular_ref_or_val_t<Pred, IsConst> pred)
                   : pred_(std::move(pred))
                 {}
-                bool empty(range_iterator_t<Rng> it, range_sentinel_t<Rng> end) const
+                bool empty(iterator_t<Rng> it, sentinel_t<Rng> end) const
                 {
-                    return it == end || !pred_(it);
+                    return it == end || !invoke(pred_, it);
                 }
             };
             sentinel_adaptor<false> end_adaptor()
             {
                 return {pred_};
             }
-            CONCEPT_REQUIRES(Callable<Pred const, range_iterator_t<Rng>>())
+            CONCEPT_REQUIRES(Invocable<Pred const&, iterator_t<Rng>>())
             sentinel_adaptor<true> end_adaptor() const
             {
                 return {pred_};
@@ -72,8 +73,8 @@ namespace ranges
         public:
             iter_take_while_view() = default;
             iter_take_while_view(Rng rng, Pred pred)
-              : view_adaptor_t<iter_take_while_view>{std::move(rng)}
-              , pred_(as_function(std::move(pred)))
+              : iter_take_while_view::view_adaptor{std::move(rng)}
+              , pred_(std::move(pred))
             {}
         };
 
@@ -105,13 +106,14 @@ namespace ranges
                 template<typename Rng, typename Pred>
                 using Concept = meta::and_<
                     InputRange<Rng>,
-                    CallablePredicate<Pred, range_iterator_t<Rng>>>;
+                    Predicate<Pred&, iterator_t<Rng>>,
+                    CopyConstructible<Pred>>;
 
                 template<typename Rng, typename Pred,
                     CONCEPT_REQUIRES_(Concept<Rng, Pred>())>
                 iter_take_while_view<all_t<Rng>, Pred> operator()(Rng && rng, Pred pred) const
                 {
-                    return {all(std::forward<Rng>(rng)), std::move(pred)};
+                    return {all(static_cast<Rng&&>(rng)), std::move(pred)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng, typename Pred,
@@ -121,10 +123,12 @@ namespace ranges
                     CONCEPT_ASSERT_MSG(InputRange<Rng>(),
                         "The object on which view::take_while operates must be a model of the "
                         "InputRange concept.");
-                    CONCEPT_ASSERT_MSG(CallablePredicate<Pred, range_iterator_t<Rng>>(),
+                    CONCEPT_ASSERT_MSG(Predicate<Pred&, iterator_t<Rng>>(),
                         "The function passed to view::take_while must be callable with objects of "
                         "the range's iterator type, and its result type must be convertible to "
                         "bool.");
+                    CONCEPT_ASSERT_MSG(CopyConstructible<Pred>(),
+                        "The function object passed to view::take_while must be CopyConstructible.");
                 }
             #endif
             };
@@ -144,13 +148,13 @@ namespace ranges
                 template<typename Rng, typename Pred>
                 using Concept = meta::and_<
                     InputRange<Rng>,
-                    IndirectCallablePredicate<Pred, range_iterator_t<Rng>>>;
+                    IndirectPredicate<Pred, iterator_t<Rng>>>;
 
                 template<typename Rng, typename Pred,
                     CONCEPT_REQUIRES_(Concept<Rng, Pred>())>
                 take_while_view<all_t<Rng>, Pred> operator()(Rng && rng, Pred pred) const
                 {
-                    return {all(std::forward<Rng>(rng)), std::move(pred)};
+                    return {all(static_cast<Rng&&>(rng)), std::move(pred)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng, typename Pred,
@@ -160,7 +164,7 @@ namespace ranges
                     CONCEPT_ASSERT_MSG(InputRange<Rng>(),
                         "The object on which view::take_while operates must be a model of the "
                         "InputRange concept.");
-                    CONCEPT_ASSERT_MSG(IndirectCallablePredicate<Pred, range_iterator_t<Rng>>(),
+                    CONCEPT_ASSERT_MSG(IndirectPredicate<Pred, iterator_t<Rng>>(),
                         "The function passed to view::take_while must be callable with objects of "
                         "the range's common reference type, and its result type must be "
                         "convertible to bool.");
@@ -170,20 +174,17 @@ namespace ranges
 
             /// \relates iter_take_while_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& iter_take_while = static_const<view<iter_take_while_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<iter_take_while_fn>, iter_take_while)
 
             /// \relates take_while_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& take_while = static_const<view<take_while_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<take_while_fn>, take_while)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::iter_take_while_view)
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::take_while_view)
 
 #endif

@@ -33,7 +33,7 @@ namespace ranges
         template<typename I, typename C, typename P = ident>
         using RemovableIf = meta::strict_and<
             ForwardIterator<I>,
-            IndirectCallablePredicate<C, Projected<I, P>>,
+            IndirectPredicate<C, projected<I, P>>,
             Permutable<I>>;
 
         /// \addtogroup group-algorithms
@@ -41,17 +41,15 @@ namespace ranges
         struct remove_if_fn
         {
             template<typename I, typename S, typename C, typename P = ident,
-                CONCEPT_REQUIRES_(RemovableIf<I, C, P>() && IteratorRange<I, S>())>
-            I operator()(I begin, S end, C pred_, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(RemovableIf<I, C, P>() && Sentinel<S, I>())>
+            I operator()(I begin, S end, C pred, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 begin = find_if(std::move(begin), end, std::ref(pred), std::ref(proj));
                 if(begin != end)
                 {
                     for(I i = next(begin); i != end; ++i)
                     {
-                        if(!(pred(proj(*i))))
+                        if(!(invoke(pred, invoke(proj, *i))))
                         {
                             *begin = iter_move(i);
                             ++begin;
@@ -62,9 +60,9 @@ namespace ranges
             }
 
             template<typename Rng, typename C, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(RemovableIf<I, C, P>() && ForwardRange<Rng>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred, P proj = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(pred), std::move(proj));
             }
@@ -72,11 +70,7 @@ namespace ranges
 
         /// \sa `remove_if_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& remove_if = static_const<with_braced_init_args<remove_if_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<remove_if_fn>, remove_if)
         /// @}
     } // namespace v3
 } // namespace ranges

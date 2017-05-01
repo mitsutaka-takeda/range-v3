@@ -47,18 +47,15 @@ namespace ranges
             template<typename I1, typename S1, typename I2, typename S2,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
                 CONCEPT_REQUIRES_(Comparable<I1, I2, C, P1, P2>() &&
-                    IteratorRange<I1, S1>() && IteratorRange<I2, S2>())>
+                    Sentinel<S1, I1>() && Sentinel<S2, I2>())>
             bool operator()(I1 begin1, S1 end1, I2 begin2, S2 end2,
-                C pred_ = C{}, P1 proj1_ = P1{}, P2 proj2_ = P2{}) const
+                C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj1 = as_function(proj1_);
-                auto &&proj2 = as_function(proj2_);
                 for(; begin2 != end2; ++begin1)
                 {
-                    if(begin1 == end1 || pred(proj2(*begin2), proj1(*begin1)))
+                    if(begin1 == end1 || invoke(pred, invoke(proj2, *begin2), invoke(proj1, *begin1)))
                         return false;
-                    if(!pred(proj1(*begin1), proj2(*begin2)))
+                    if(!invoke(pred, invoke(proj1, *begin1), invoke(proj2, *begin2)))
                         ++begin2;
                 }
                 return true;
@@ -66,8 +63,8 @@ namespace ranges
 
             template<typename Rng1, typename Rng2, typename C = ordered_less,
                 typename P1 = ident, typename P2 = ident,
-                typename I1 = range_iterator_t<Rng1>,
-                typename I2 = range_iterator_t<Rng2>,
+                typename I1 = iterator_t<Rng1>,
+                typename I2 = iterator_t<Rng2>,
                 CONCEPT_REQUIRES_(Comparable<I1, I2, C, P1, P2>() &&
                     Range<Rng1>() && Range<Rng2>())>
             bool operator()(Rng1 && rng1, Rng2 && rng2,
@@ -80,24 +77,18 @@ namespace ranges
 
         /// \sa `includes_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& includes = static_const<with_braced_init_args<includes_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<includes_fn>, includes)
 
         struct set_union_fn
         {
             template<typename I1, typename S1, typename I2, typename S2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
-                    IteratorRange<I1, S1>() && IteratorRange<I2, S2>())>
+                    Sentinel<S1, I1>() && Sentinel<S2, I2>())>
             tagged_tuple<tag::in1(I1), tag::in2(I2), tag::out(O)>
             operator()(I1 begin1, S1 end1, I2 begin2, S2 end2, O out,
-                C pred_ = C{}, P1 proj1_ = P1{}, P2 proj2_ = P2{}) const
+                C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj1 = as_function(proj1_);
-                auto &&proj2 = as_function(proj2_);
                 for(; begin1 != end1; ++out)
                 {
                     if(begin2 == end2)
@@ -106,7 +97,7 @@ namespace ranges
                         return make_tagged_tuple<tag::in1, tag::in2, tag::out>(tmp.first, begin2,
                             tmp.second);
                     }
-                    if(pred(proj2(*begin2), proj1(*begin1)))
+                    if(invoke(pred, invoke(proj2, *begin2), invoke(proj1, *begin1)))
                     {
                         *out = *begin2;
                         ++begin2;
@@ -114,7 +105,7 @@ namespace ranges
                     else
                     {
                         *out = *begin1;
-                        if(!pred(proj1(*begin1), proj2(*begin2)))
+                        if(!invoke(pred, invoke(proj1, *begin1), invoke(proj2, *begin2)))
                             ++begin2;
                         ++begin1;
                     }
@@ -126,11 +117,11 @@ namespace ranges
 
             template<typename Rng1, typename Rng2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
-                typename I1 = range_iterator_t<Rng1>,
-                typename I2 = range_iterator_t<Rng2>,
+                typename I1 = iterator_t<Rng1>,
+                typename I2 = iterator_t<Rng2>,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
                     Range<Rng1>() && Range<Rng2>())>
-            tagged_tuple<tag::in1(range_safe_iterator_t<Rng1>), tag::in2(range_safe_iterator_t<Rng2>), tag::out(O)>
+            tagged_tuple<tag::in1(safe_iterator_t<Rng1>), tag::in2(safe_iterator_t<Rng2>), tag::out(O)>
             operator()(Rng1 &&rng1, Rng2 &&rng2, O out, C pred = C{}, P1 proj1 = P1{},
                 P2 proj2 = P2{}) const
             {
@@ -141,30 +132,24 @@ namespace ranges
 
         /// \sa `set_union_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& set_union = static_const<with_braced_init_args<set_union_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<set_union_fn>, set_union)
 
         struct set_intersection_fn
         {
             template<typename I1, typename S1, typename I2, typename S2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
-                    IteratorRange<I1, S1>() && IteratorRange<I2, S2>())>
+                    Sentinel<S1, I1>() && Sentinel<S2, I2>())>
             O operator()(I1 begin1, S1 end1, I2 begin2, S2 end2, O out,
-                C pred_ = C{}, P1 proj1_ = P1{}, P2 proj2_ = P2{}) const
+                C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj1 = as_function(proj1_);
-                auto &&proj2 = as_function(proj2_);
                 while(begin1 != end1 && begin2 != end2)
                 {
-                    if(pred(proj1(*begin1), proj2(*begin2)))
+                    if(invoke(pred, invoke(proj1, *begin1), invoke(proj2, *begin2)))
                         ++begin1;
                     else
                     {
-                        if(!pred(proj2(*begin2), proj1(*begin1)))
+                        if(!invoke(pred, invoke(proj2, *begin2), invoke(proj1, *begin1)))
                         {
                             *out = *begin1;
                             ++out;
@@ -178,8 +163,8 @@ namespace ranges
 
             template<typename Rng1, typename Rng2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
-                typename I1 = range_iterator_t<Rng1>,
-                typename I2 = range_iterator_t<Rng2>,
+                typename I1 = iterator_t<Rng1>,
+                typename I2 = iterator_t<Rng2>,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
                     Range<Rng1>() && Range<Rng2>())>
             O operator()(Rng1 && rng1, Rng2 && rng2, O out,
@@ -192,28 +177,23 @@ namespace ranges
 
         /// \sa `set_intersection_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& set_intersection = static_const<with_braced_init_args<set_intersection_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<set_intersection_fn>,
+                               set_intersection)
 
         struct set_difference_fn
         {
             template<typename I1, typename S1, typename I2, typename S2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
-                    IteratorRange<I1, S1>() && IteratorRange<I2, S2>())>
+                    Sentinel<S1, I1>() && Sentinel<S2, I2>())>
             tagged_pair<tag::in1(I1), tag::out(O)> operator()(I1 begin1, S1 end1, I2 begin2, S2 end2, O out,
-                C pred_ = C{}, P1 proj1_ = P1{}, P2 proj2_ = P2{}) const
+                C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj1 = as_function(proj1_);
-                auto &&proj2 = as_function(proj2_);
                 while(begin1 != end1)
                 {
                     if(begin2 == end2)
                         return copy(begin1, end1, out);
-                    if(pred(proj1(*begin1), proj2(*begin2)))
+                    if(invoke(pred, invoke(proj1, *begin1), invoke(proj2, *begin2)))
                     {
                         *out = *begin1;
                         ++out;
@@ -221,7 +201,7 @@ namespace ranges
                     }
                     else
                     {
-                        if(!pred(proj2(*begin2), proj1(*begin1)))
+                        if(!invoke(pred, invoke(proj2, *begin2), invoke(proj1, *begin1)))
                             ++begin1;
                         ++begin2;
                     }
@@ -231,11 +211,11 @@ namespace ranges
 
             template<typename Rng1, typename Rng2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
-                typename I1 = range_iterator_t<Rng1>,
-                typename I2 = range_iterator_t<Rng2>,
+                typename I1 = iterator_t<Rng1>,
+                typename I2 = iterator_t<Rng2>,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
                     Range<Rng1>() && Range<Rng2>())>
-            tagged_pair<tag::in1(range_safe_iterator_t<Rng1>), tag::out(O)> operator()(Rng1 &&rng1, Rng2 && rng2, O out,
+            tagged_pair<tag::in1(safe_iterator_t<Rng1>), tag::out(O)> operator()(Rng1 &&rng1, Rng2 && rng2, O out,
                 C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
                 return (*this)(begin(rng1), end(rng1), begin(rng2), end(rng2), std::move(out),
@@ -245,23 +225,18 @@ namespace ranges
 
         /// \sa `set_difference_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& set_difference = static_const<with_braced_init_args<set_difference_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<set_difference_fn>,
+                               set_difference)
 
         struct set_symmetric_difference_fn
         {
             template<typename I1, typename S1, typename I2, typename S2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
-                    IteratorRange<I1, S1>() && IteratorRange<I2, S2>())>
+                    Sentinel<S1, I1>() && Sentinel<S2, I2>())>
             tagged_tuple<tag::in1(I1), tag::in2(I2), tag::out(O)> operator()(I1 begin1, S1 end1, I2 begin2, S2 end2, O out,
-                C pred_ = C{}, P1 proj1_ = P1{}, P2 proj2_ = P2{}) const
+                C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj1 = as_function(proj1_);
-                auto &&proj2 = as_function(proj2_);
                 while(begin1 != end1)
                 {
                     if(begin2 == end2)
@@ -269,7 +244,7 @@ namespace ranges
                         auto tmp = copy(begin1, end1, out);
                         return tagged_tuple<tag::in1(I1), tag::in2(I2), tag::out(O)>{tmp.first, begin2, tmp.second};
                     }
-                    if(pred(proj1(*begin1), proj2(*begin2)))
+                    if(invoke(pred, invoke(proj1, *begin1), invoke(proj2, *begin2)))
                     {
                         *out = *begin1;
                         ++out;
@@ -277,7 +252,7 @@ namespace ranges
                     }
                     else
                     {
-                        if(pred(proj2(*begin2), proj1(*begin1)))
+                        if(invoke(pred, invoke(proj2, *begin2), invoke(proj1, *begin1)))
                         {
                             *out = *begin2;
                             ++out;
@@ -293,11 +268,11 @@ namespace ranges
 
             template<typename Rng1, typename Rng2, typename O,
                 typename C = ordered_less, typename P1 = ident, typename P2 = ident,
-                typename I1 = range_iterator_t<Rng1>,
-                typename I2 = range_iterator_t<Rng2>,
+                typename I1 = iterator_t<Rng1>,
+                typename I2 = iterator_t<Rng2>,
                 CONCEPT_REQUIRES_(Mergeable<I1, I2, O, C, P1, P2>() &&
                     Range<Rng1>() && Range<Rng2>())>
-            tagged_tuple<tag::in1(range_safe_iterator_t<Rng1>), tag::in2(range_safe_iterator_t<Rng2>), tag::out(O)>
+            tagged_tuple<tag::in1(safe_iterator_t<Rng1>), tag::in2(safe_iterator_t<Rng2>), tag::out(O)>
             operator()(Rng1 &&rng1, Rng2 &&rng2, O out,
                 C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
@@ -308,11 +283,8 @@ namespace ranges
 
         /// \sa `set_symmetric_difference_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& set_symmetric_difference = static_const<with_braced_init_args<set_symmetric_difference_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<set_symmetric_difference_fn>,
+                               set_symmetric_difference)
         /// @}
     } // namespace v3
 } // namespace ranges

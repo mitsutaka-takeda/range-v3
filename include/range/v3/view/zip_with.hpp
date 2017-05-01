@@ -20,6 +20,7 @@
 #include <functional>
 #include <type_traits>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/begin_end.hpp>
 #include <range/v3/range_traits.hpp>
@@ -69,10 +70,10 @@ namespace ranges
 
             constexpr struct
             {
-                template<typename T, typename D>
-                void operator()(T & t, D d) const
+                template<typename I, CONCEPT_REQUIRES_(Iterator<I>())>
+                void operator()(I & i, difference_type_t<I> n) const
                 {
-                    advance(t, d);
+                    advance(i, n);
                 }
             } advance_ {};
 
@@ -116,19 +117,6 @@ namespace ranges
                             State::value == unknown || Value::value == unknown ?
                                 unknown :
                                 infinite>;
-
-            // indirect_move is put here instead of in iter_transform2_view::cursor to
-            // work around gcc friend name injection bug.
-            template<typename Cursor, std::size_t Cnt>
-            struct zip_cursor_indirect_move
-            {
-                template<typename Sent>
-                friend auto indirect_move(basic_iterator<Cursor, Sent> const &it)
-                RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
-                (
-                    get_cursor(it).indirect_move_(meta::make_index_sequence<Cnt>{})
-                )
-            };
         } // namespace detail
         /// \endcond
 
@@ -145,34 +133,45 @@ namespace ranges
         {
         private:
             friend range_access;
-            semiregular_t<function_type<Fun>> fun_;
+            semiregular_t<Fun> fun_;
             std::tuple<Rngs...> rngs_;
-            using difference_type_ = common_type_t<range_difference_t<Rngs>...>;
+            using difference_type_ = common_type_t<range_difference_type_t<Rngs>...>;
             using size_type_ = meta::_t<std::make_unsigned<difference_type_>>;
 
-            struct sentinel;
-            struct cursor
-              : detail::zip_cursor_indirect_move<cursor, sizeof...(Rngs)>
+            struct cursor;
+
+            struct sentinel
             {
             private:
-                friend sentinel;
-                using fun_ref_ = semiregular_ref_or_val_t<function_type<Fun>, true>;
+                friend struct cursor;
+                std::tuple<sentinel_t<Rngs>...> ends_;
+            public:
+                sentinel() = default;
+                sentinel(detail::any, std::tuple<sentinel_t<Rngs>...> ends)
+                  : ends_(std::move(ends))
+                {}
+            };
+
+            struct cursor
+            {
+            private:
+                using fun_ref_ = semiregular_ref_or_val_t<Fun, true>;
                 fun_ref_ fun_;
-                std::tuple<range_iterator_t<Rngs>...> its_;
+                std::tuple<iterator_t<Rngs>...> its_;
 
             public:
                 using difference_type =
-                    common_type_t<range_difference_t<Rngs>...>;
+                    common_type_t<range_difference_type_t<Rngs>...>;
                 using single_pass =
-                    meta::or_c<(bool) SinglePass<range_iterator_t<Rngs>>()...>;
+                    meta::or_c<(bool) SinglePass<iterator_t<Rngs>>()...>;
                 using value_type =
-                    detail::decay_t<decltype(fun_(copy_tag{}, range_iterator_t<Rngs>{}...))>;
+                    detail::decay_t<decltype(invoke(fun_, copy_tag{}, iterator_t<Rngs>{}...))>;
 
                 cursor() = default;
-                cursor(fun_ref_ fun, std::tuple<range_iterator_t<Rngs>...> its)
+                cursor(fun_ref_ fun, std::tuple<iterator_t<Rngs>...> its)
                   : fun_(std::move(fun)), its_(std::move(its))
                 {}
-                auto get() const
+                auto read() const
                 RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
                 (
                     tuple_apply(fun_, its_)
@@ -181,6 +180,7 @@ namespace ranges
                 {
                     tuple_for_each(its_, detail::inc);
                 }
+                CONCEPT_REQUIRES(meta::and_c<(bool) Sentinel<iterator_t<Rngs>, iterator_t<Rngs>>()...>::value)
                 bool equal(cursor const &that) const
                 {
                     // By returning true if *any* of the iterators are equal, we allow
@@ -188,6 +188,16 @@ namespace ranges
                     // one reaches the end.
                     return tuple_foldl(
                         tuple_transform(its_, that.its_, detail::equal_to),
+                        false,
+                        [](bool a, bool b) { return a || b; });
+                }
+                bool equal(sentinel const &s) const
+                {
+                    // By returning true if *any* of the iterators are equal, we allow
+                    // zipped ranges to be of different lengths, stopping when the first
+                    // one reaches the end.
+                    return tuple_foldl(
+                        tuple_transform(its_, s.ends_, detail::equal_to),
                         false,
                         [](bool a, bool b) { return a || b; });
                 }
@@ -203,8 +213,7 @@ namespace ranges
                     tuple_for_each(its_, std::bind(detail::advance_, _1, n));
                 }
                 CONCEPT_REQUIRES(meta::and_c<(bool)
-                    SizedIteratorRange<range_iterator_t<Rngs>,
-                        range_iterator_t<Rngs>>()...>::value)
+                    SizedSentinel<iterator_t<Rngs>, iterator_t<Rngs>>()...>::value)
                 difference_type distance_to(cursor const &that) const
                 {
                     // Return the smallest distance (in magnitude) of any of the iterator
@@ -221,31 +230,18 @@ namespace ranges
                             detail::max_);
                 }
                 template<std::size_t...Is>
-                auto indirect_move_(meta::index_sequence<Is...>) const
+                auto move_(meta::index_sequence<Is...>) const
                 RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
                 (
-                    fun_(move_tag{}, std::get<Is>(its_)...)
+                    invoke(fun_, move_tag{}, std::get<Is>(its_)...)
                 )
-            };
-
-            struct sentinel
-            {
-            private:
-                std::tuple<range_sentinel_t<Rngs>...> ends_;
-            public:
-                sentinel() = default;
-                sentinel(detail::any, std::tuple<range_sentinel_t<Rngs>...> ends)
-                  : ends_(std::move(ends))
-                {}
-                bool equal(cursor const &pos) const
+                auto move() const
+                    noexcept(noexcept(std::declval<cursor const&>().move_(
+                        meta::make_index_sequence<sizeof...(Rngs)>{}))) ->
+                    decltype(std::declval<cursor const&>().move_(
+                        meta::make_index_sequence<sizeof...(Rngs)>{}))
                 {
-                    // By returning true if *any* of the iterators are equal, we allow
-                    // zipped ranges to be of different lengths, stopping when the first
-                    // one reaches the end.
-                    return tuple_foldl(
-                        tuple_transform(pos.its_, ends_, detail::equal_to),
-                        false,
-                        [](bool a, bool b) { return a || b; });
+                    return move_(meta::make_index_sequence<sizeof...(Rngs)>{});
                 }
             };
 
@@ -253,7 +249,7 @@ namespace ranges
                 meta::if_<
                     meta::and_c<
                         meta::and_c<(bool) BoundedRange<Rngs>()...>::value,
-                        !SinglePass<range_iterator_t<Rngs>>()...>,
+                        !SinglePass<iterator_t<Rngs>>()...>,
                     cursor,
                     sentinel>;
 
@@ -278,11 +274,11 @@ namespace ranges
         public:
             iter_zip_with_view() = default;
             explicit iter_zip_with_view(Rngs ...rngs)
-              : fun_(as_function(Fun{}))
+              : fun_(Fun{})
               , rngs_{std::move(rngs)...}
             {}
             explicit iter_zip_with_view(Fun fun, Rngs ...rngs)
-              : fun_(as_function(std::move(fun)))
+              : fun_(std::move(fun))
               , rngs_{std::move(rngs)...}
             {}
             CONCEPT_REQUIRES(meta::and_c<(bool) SizedRange<Rngs>()...>::value)
@@ -319,9 +315,10 @@ namespace ranges
                 template<typename Fun, typename ...Rngs>
                 using Concept = meta::and_<
                     meta::and_<InputRange<Rngs>...>,
-                    Callable<Fun, range_iterator_t<Rngs>...>,
-                    Callable<Fun, copy_tag, range_iterator_t<Rngs>...>,
-                    Callable<Fun, move_tag, range_iterator_t<Rngs>...>>;
+                    CopyConstructible<Fun>(),
+                    Invocable<Fun&, iterator_t<Rngs>...>,
+                    Invocable<Fun&, copy_tag, iterator_t<Rngs>...>,
+                    Invocable<Fun&, move_tag, iterator_t<Rngs>...>>;
 
                 template<typename...Rngs, typename Fun,
                     CONCEPT_REQUIRES_(Concept<Fun, Rngs...>())>
@@ -329,7 +326,7 @@ namespace ranges
                 {
                     return iter_zip_with_view<Fun, all_t<Rngs>...>{
                         std::move(fun),
-                        all(std::forward<Rngs>(rngs))...
+                        all(static_cast<Rngs&&>(rngs))...
                     };
                 }
 
@@ -342,15 +339,18 @@ namespace ranges
                         "All of the objects passed to view::iter_zip_with must model the InputRange "
                         "concept");
                     CONCEPT_ASSERT_MSG(
-                        Callable<Fun, range_iterator_t<Rngs>...>(),
+                        CopyConstructible<Fun>(),
+                        "The function object passed to view::iter_zip_with must be CopyConstructible.");
+                    CONCEPT_ASSERT_MSG(
+                        Invocable<Fun&, iterator_t<Rngs>...>(),
                         "The function passed to view::iter_zip_with must be callable with arguments "
                         "of the ranges' iterator types.");
                     CONCEPT_ASSERT_MSG(
-                        Callable<Fun, copy_tag, range_iterator_t<Rngs>...>(),
+                        Invocable<Fun&, copy_tag, iterator_t<Rngs>...>(),
                         "The function passed to view::iter_zip_with must be callable with "
                         "copy_tag and arguments of the ranges' iterator types.");
                     CONCEPT_ASSERT_MSG(
-                        Callable<Fun, move_tag, range_iterator_t<Rngs>...>(),
+                        Invocable<Fun&, move_tag, iterator_t<Rngs>...>(),
                         "The function passed to view::iter_zip_with must be callable with "
                         "move_tag and arguments of the ranges' iterator types.");
                 }
@@ -359,17 +359,15 @@ namespace ranges
 
             /// \relates iter_zip_with_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& iter_zip_with = static_const<iter_zip_with_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(iter_zip_with_fn, iter_zip_with)
 
             struct zip_with_fn
             {
                 template<typename Fun, typename ...Rngs>
                 using Concept = meta::and_<
                     meta::and_<InputRange<Rngs>...>,
-                    Callable<Fun, range_reference_t<Rngs> &&...>>;
+                    CopyConstructible<Fun>,
+                    Invocable<Fun&, range_reference_t<Rngs> &&...>>;
 
                 template<typename...Rngs, typename Fun,
                     CONCEPT_REQUIRES_(Concept<Fun, Rngs...>())>
@@ -377,7 +375,7 @@ namespace ranges
                 {
                     return zip_with_view<Fun, all_t<Rngs>...>{
                         std::move(fun),
-                        all(std::forward<Rngs>(rngs))...
+                        all(static_cast<Rngs&&>(rngs))...
                     };
                 }
 
@@ -390,7 +388,10 @@ namespace ranges
                         "All of the objects passed to view::zip_with must model the InputRange "
                         "concept");
                     CONCEPT_ASSERT_MSG(
-                        Callable<Fun, range_reference_t<Rngs> &&...>(),
+                        CopyConstructible<Fun>(),
+                        "The function object passed to view::zip_with must be CopyConstructible.");
+                    CONCEPT_ASSERT_MSG(
+                        Invocable<Fun&, range_reference_t<Rngs> &&...>(),
                         "The function passed to view::zip_with must be callable with arguments "
                         "of the ranges' reference types.");
                 }
@@ -399,13 +400,13 @@ namespace ranges
 
             /// \relates zip_with_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& zip_with = static_const<zip_with_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(zip_with_fn, zip_with)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::iter_zip_with_view)
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::zip_with_view)
 
 #endif

@@ -42,7 +42,7 @@ namespace ranges
         template<typename I, typename C = ordered_less, typename P = ident>
         using IsHeapable = meta::strict_and<
             RandomAccessIterator<I>,
-            IndirectCallableRelation<C, Projected<I, P>>>;
+            IndirectRelation<C, projected<I, P>>>;
 
         /// \cond
         namespace detail
@@ -51,21 +51,19 @@ namespace ranges
             {
                 template<typename I, typename C = ordered_less, typename P = ident,
                     CONCEPT_REQUIRES_(IsHeapable<I, C, P>())>
-                I operator()(I const begin_, iterator_difference_t<I> const n_, C pred_ = C{}, P proj_ = P{}) const
+                I operator()(I const begin_, difference_type_t<I> const n_, C pred = C{}, P proj = P{}) const
                 {
-                    RANGES_ASSERT(0 <= n_);
-                    auto &&pred = as_function(pred_);
-                    auto &&proj = as_function(proj_);
-                    iterator_difference_t<I> p = 0, c = 1;
+                    RANGES_EXPECT(0 <= n_);
+                    difference_type_t<I> p = 0, c = 1;
                     I pp = begin_;
                     while(c < n_)
                     {
                         I cp = begin_ + c;
-                        if(pred(proj(*pp), proj(*cp)))
+                        if(invoke(pred, invoke(proj, *pp), invoke(proj, *cp)))
                             return cp;
                         ++c;
                         ++cp;
-                        if(c == n_ || pred(proj(*pp), proj(*cp)))
+                        if(c == n_ || invoke(pred, invoke(proj, *pp), invoke(proj, *cp)))
                             return cp;
                         ++p;
                         ++pp;
@@ -75,25 +73,19 @@ namespace ranges
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& is_heap_until_n = static_const<is_heap_until_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(is_heap_until_n_fn, is_heap_until_n)
 
             struct is_heap_n_fn
             {
                 template<typename I, typename C = ordered_less, typename P = ident,
                     CONCEPT_REQUIRES_(IsHeapable<I, C, P>())>
-                bool operator()(I begin, iterator_difference_t<I> n, C pred = C{}, P proj = P{}) const
+                bool operator()(I begin, difference_type_t<I> n, C pred = C{}, P proj = P{}) const
                 {
                     return is_heap_until_n(begin, n, std::move(pred), std::move(proj)) == begin + n;
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& is_heap_n = static_const<is_heap_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(is_heap_n_fn, is_heap_n)
         }
         /// \endcond
 
@@ -102,7 +94,7 @@ namespace ranges
         struct is_heap_until_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(IsHeapable<I, C, P>() && IteratorRange<I, S>())>
+                CONCEPT_REQUIRES_(IsHeapable<I, C, P>() && Sentinel<S, I>())>
             I operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
                 return detail::is_heap_until_n(std::move(begin), distance(begin, end), std::move(pred),
@@ -110,9 +102,9 @@ namespace ranges
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(IsHeapable<I, C, P>() && Range<Rng>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
                 return detail::is_heap_until_n(begin(rng), distance(rng), std::move(pred),
                     std::move(proj));
@@ -121,15 +113,13 @@ namespace ranges
 
         /// \sa `is_heap_until_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& is_heap_until = static_const<with_braced_init_args<is_heap_until_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<is_heap_until_fn>,
+                               is_heap_until)
 
         struct is_heap_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(IsHeapable<I, C, P>() && IteratorRange<I, S>())>
+                CONCEPT_REQUIRES_(IsHeapable<I, C, P>() && Sentinel<S, I>())>
             bool operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
                 return detail::is_heap_n(std::move(begin), distance(begin, end), std::move(pred),
@@ -137,7 +127,7 @@ namespace ranges
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(IsHeapable<I, C, P>() && Range<Rng>())>
             bool operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
@@ -147,10 +137,7 @@ namespace ranges
 
         /// \sa `is_heap_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& is_heap = static_const<with_braced_init_args<is_heap_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<is_heap_fn>, is_heap)
         /// @}
 
         /// \cond
@@ -159,18 +146,16 @@ namespace ranges
             struct sift_up_n_fn
             {
                 template<typename I, typename C = ordered_less, typename P = ident>
-                void operator()(I begin, iterator_difference_t<I> len, C pred_ = C{}, P proj_ = P{}) const
+                void operator()(I begin, difference_type_t<I> len, C pred = C{}, P proj = P{}) const
                 {
                     if(len > 1)
                     {
-                        auto &&pred = as_function(pred_);
-                        auto &&proj = as_function(proj_);
                         I end = begin + len;
                         len = (len - 2) / 2;
                         I i = begin + len;
-                        if(pred(proj(*i), proj(*--end)))
+                        if(invoke(pred, invoke(proj, *i), invoke(proj, *--end)))
                         {
-                            iterator_value_t<I> v = iter_move(end);
+                            value_type_t<I> v = iter_move(end);
                             do
                             {
                                 *end = iter_move(i);
@@ -179,22 +164,19 @@ namespace ranges
                                     break;
                                 len = (len - 1) / 2;
                                 i = begin + len;
-                            } while(pred(proj(*i), proj(v)));
+                            } while(invoke(pred, invoke(proj, *i), invoke(proj, v)));
                             *end = std::move(v);
                         }
                     }
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& sift_up_n = static_const<sift_up_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(sift_up_n_fn, sift_up_n)
 
             struct sift_down_n_fn
             {
                 template<typename I, typename C = ordered_less, typename P = ident>
-                void operator()(I begin, iterator_difference_t<I> len, I start, C pred_ = C {}, P proj_ = P{}) const
+                void operator()(I begin, difference_type_t<I> len, I start, C pred = C {}, P proj = P{}) const
                 {
                     // left-child of start is at 2 * start + 1
                     // right-child of start is at 2 * start + 2
@@ -206,10 +188,7 @@ namespace ranges
                     child = 2 * child + 1;
                     I child_i = begin + child;
 
-                    auto &&pred = as_function(pred_);
-                    auto &&proj = as_function(proj_);
-
-                    if((child + 1) < len && pred(proj(*child_i), proj(*(child_i + 1))))
+                    if((child + 1) < len && invoke(pred, invoke(proj, *child_i), invoke(proj, *(child_i + 1))))
                     {
                         // right-child exists and is greater than left-child
                         ++child_i;
@@ -217,11 +196,11 @@ namespace ranges
                     }
 
                     // check if we are in heap-order
-                    if(pred(proj(*child_i), proj(*start)))
+                    if(invoke(pred, invoke(proj, *child_i), invoke(proj, *start)))
                         // we are, start is larger than it's largest child
                         return;
 
-                    iterator_value_t<I> top = iter_move(start);
+                    value_type_t<I> top = iter_move(start);
                     do
                     {
                         // we are not in heap-order, swap the parent with it's largest child
@@ -235,7 +214,7 @@ namespace ranges
                         child = 2 * child + 1;
                         child_i = begin + child;
 
-                        if((child + 1) < len && pred(proj(*child_i), proj(*(child_i + 1))))
+                        if((child + 1) < len && invoke(pred, invoke(proj, *child_i), invoke(proj, *(child_i + 1))))
                         {
                             // right-child exists and is greater than left-child
                             ++child_i;
@@ -243,15 +222,12 @@ namespace ranges
                         }
 
                         // check if we are in heap-order
-                    } while (!pred(proj(*child_i), proj(top)));
+                    } while(!invoke(pred, invoke(proj, *child_i), invoke(proj, top)));
                     *start = std::move(top);
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& sift_down_n = static_const<sift_down_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(sift_down_n_fn, sift_down_n)
         }
         /// \endcond
 
@@ -260,7 +236,7 @@ namespace ranges
         struct push_heap_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && IteratorRange<I, S>() && Sortable<I, C, P>())>
+                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && Sentinel<S, I>() && Sortable<I, C, P>())>
             I operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
                 auto n = distance(begin, end);
@@ -269,9 +245,9 @@ namespace ranges
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(RandomAccessRange<Rng>() && Sortable<I, C, P>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
                 I begin = ranges::begin(rng);
                 auto n = distance(rng);
@@ -282,10 +258,7 @@ namespace ranges
 
         /// \sa `push_heap_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& push_heap = static_const<with_braced_init_args<push_heap_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<push_heap_fn>, push_heap)
         /// @}
 
         /// \cond
@@ -295,7 +268,7 @@ namespace ranges
             {
                 template<typename I, typename C = ordered_less, typename P = ident,
                     CONCEPT_REQUIRES_(RandomAccessIterator<I>() && Sortable<I, C, P>())>
-                void operator()(I begin, iterator_difference_t<I> len, C pred = C{},
+                void operator()(I begin, difference_type_t<I> len, C pred = C{},
                     P proj = P{}) const
                 {
                     if(len > 1)
@@ -306,10 +279,7 @@ namespace ranges
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& pop_heap_n = static_const<pop_heap_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(pop_heap_n_fn, pop_heap_n)
         }
         /// \endcond
 
@@ -318,7 +288,7 @@ namespace ranges
         struct pop_heap_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && IteratorRange<I, S>() && Sortable<I, C, P>())>
+                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && Sentinel<S, I>() && Sortable<I, C, P>())>
             I operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
                 auto n = distance(begin, end);
@@ -327,9 +297,9 @@ namespace ranges
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(RandomAccessRange<Rng>() && Sortable<I, C, P>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
                 I begin = ranges::begin(rng);
                 auto n = distance(rng);
@@ -340,20 +310,15 @@ namespace ranges
 
         /// \sa `pop_heap_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& pop_heap = static_const<with_braced_init_args<pop_heap_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<pop_heap_fn>, pop_heap)
 
         struct make_heap_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && IteratorRange<I, S>() && Sortable<I, C, P>())>
-            I operator()(I begin, S end, C pred_ = C{}, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && Sentinel<S, I>() && Sortable<I, C, P>())>
+            I operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
-                iterator_difference_t<I> const n = distance(begin, end);
+                difference_type_t<I> const n = distance(begin, end);
                 if(n > 1)
                     // start from the first parent, there is no need to consider children
                     for(auto start = (n - 2) / 2; start >= 0; --start)
@@ -362,14 +327,12 @@ namespace ranges
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(RandomAccessRange<Rng>() && Sortable<I, C, P>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred_ = C{}, P proj_ = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 I begin = ranges::begin(rng);
-                iterator_difference_t<I> const n = distance(rng);
+                difference_type_t<I> const n = distance(rng);
                 if(n > 1)
                     // start from the first parent, there is no need to consider children
                     for(auto start = (n - 2) / 2; start >= 0; --start)
@@ -380,34 +343,27 @@ namespace ranges
 
         /// \sa `make_heap_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& make_heap = static_const<with_braced_init_args<make_heap_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<make_heap_fn>, make_heap)
 
         struct sort_heap_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && IteratorRange<I, S>() && Sortable<I, C, P>())>
-            I operator()(I begin, S end, C pred_ = C{}, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(RandomAccessIterator<I>() && Sentinel<S, I>() && Sortable<I, C, P>())>
+            I operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
-                iterator_difference_t<I> const n = distance(begin, end);
+                difference_type_t<I> const n = distance(begin, end);
                 for(auto i = n; i > 1; --i)
                     detail::pop_heap_n(begin, i, std::ref(pred), std::ref(proj));
                 return begin + n;
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(RandomAccessRange<Rng &>() && Sortable<I, C, P>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred_ = C{}, P proj_ = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 I begin = ranges::begin(rng);
-                iterator_difference_t<I> const n = distance(rng);
+                difference_type_t<I> const n = distance(rng);
                 for(auto i = n; i > 1; --i)
                     detail::pop_heap_n(begin, i, std::ref(pred), std::ref(proj));
                 return begin + n;
@@ -416,11 +372,7 @@ namespace ranges
 
         /// \sa `sort_heap_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& sort_heap = static_const<with_braced_init_args<sort_heap_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<sort_heap_fn>, sort_heap)
         /// @}
     } // namespace v3
 } // namespace ranges

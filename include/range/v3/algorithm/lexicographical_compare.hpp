@@ -32,19 +32,16 @@ namespace ranges
         {
             template<typename I0, typename S0, typename I1, typename S1,
                 typename C = ordered_less, typename P0 = ident, typename P1 = ident,
-                CONCEPT_REQUIRES_(IteratorRange<I0, S0>() && IteratorRange<I1, S1>() &&
+                CONCEPT_REQUIRES_(Sentinel<S0, I0>() && Sentinel<S1, I1>() &&
                     Comparable<I0, I1, C, P0, P1>())>
-            bool operator()(I0 begin0, S0 end0, I1 begin1, S1 end1, C pred_ = C{}, P0 proj0_ = P0{},
-                P1 proj1_ = P1{}) const
+            bool operator()(I0 begin0, S0 end0, I1 begin1, S1 end1, C pred = C{}, P0 proj0 = P0{},
+                P1 proj1 = P1{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj0 = as_function(proj0_);
-                auto &&proj1 = as_function(proj1_);
                 for(; begin1 != end1; ++begin0, ++begin1)
                 {
-                    if(begin0 == end0 || pred(proj0(*begin0), proj1(*begin1)))
+                    if(begin0 == end0 || invoke(pred, invoke(proj0, *begin0), invoke(proj1, *begin1)))
                         return true;
-                    if(pred(proj1(*begin1), proj0(*begin0)))
+                    if(invoke(pred, invoke(proj1, *begin1), invoke(proj0, *begin0)))
                         return false;
                 }
                 return false;
@@ -52,8 +49,8 @@ namespace ranges
 
             template<typename Rng0, typename Rng1, typename C = ordered_less,
                 typename P0 = ident, typename P1 = ident,
-                typename I0 = range_iterator_t<Rng0>,
-                typename I1 = range_iterator_t<Rng1>,
+                typename I0 = iterator_t<Rng0>,
+                typename I1 = iterator_t<Rng1>,
                 CONCEPT_REQUIRES_(InputRange<Rng0>() && InputRange<Rng1>() &&
                     Comparable<I0, I1, C, P0, P1>())>
             bool operator()(Rng0 &&rng0, Rng1 &&rng1, C pred = C{}, P0 proj0 = P0{},
@@ -66,11 +63,8 @@ namespace ranges
 
         /// \sa `lexicographical_compare_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& lexicographical_compare = static_const<with_braced_init_args<lexicographical_compare_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<lexicographical_compare_fn>,
+                               lexicographical_compare)
         /// @}
     } // namespace v3
 } // namespace ranges

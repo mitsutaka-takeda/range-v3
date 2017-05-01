@@ -1,3 +1,14 @@
+// Range v3 library
+//
+//  Copyright Eric Niebler 2014
+//
+//  Use, modification and distribution is subject to the
+//  Boost Software License, Version 1.0. (See accompanying
+//  file LICENSE_1_0.txt or copy at
+//  http://www.boost.org/LICENSE_1_0.txt)
+//
+// Project home: https://github.com/ericniebler/range-v3
+
 #include <utility>
 #include <type_traits>
 #include <range/v3/utility/common_type.hpp>
@@ -80,7 +91,7 @@ int main()
     >::value, "");
 
     // BUGBUG TODO Is a workaround possible?
-#if __GNUC__ != 4 || __GNUC_MINOR__ > 8
+#if !defined(__GNUC__) || __GNUC__ != 4 || __GNUC_MINOR__ > 8
     static_assert(std::is_same<
         common_reference_t<common_pair<int const &, int const &>, std::pair<int, int>>,
         std::pair<int, int>
@@ -117,4 +128,10 @@ int main()
         common_reference_t<X &, Y const &>,
         Z
     >::value, "");
+
+    {
+        // Regression test for #367
+        using CP = common_pair<int, int>;
+        CONCEPT_ASSERT(Same<common_type_t<CP, CP>, CP>());
+    }
 }

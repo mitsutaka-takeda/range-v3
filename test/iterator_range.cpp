@@ -12,6 +12,7 @@
 #include <list>
 #include <vector>
 #include <range/v3/core.hpp>
+#include <range/v3/utility/copy.hpp>
 #include <range/v3/utility/unreachable.hpp>
 #include <range/v3/view/all.hpp>
 #include "./simple_test.hpp"
@@ -26,11 +27,11 @@ int main()
 
     using namespace ranges;
     iterator_range<std::vector<int>::iterator> r0 {vi.begin(), vi.end()};
-    ::models<concepts::SizedView>(r0);
+    ::models<concepts::SizedView>(aux::copy(r0));
     CHECK(r0.size() == 4u);
-    CHECK(r0.first == vi.begin());
-    CHECK(r0.second == vi.end());
-    ++r0.first;
+    CHECK(r0.begin() == vi.begin());
+    CHECK(r0.end() == vi.end());
+    ++r0.begin();
     CHECK(r0.size() == 3u);
 
     std::pair<std::vector<int>::iterator, std::vector<int>::iterator> p0 = r0;
@@ -38,15 +39,15 @@ int main()
     CHECK(p0.second == vi.end());
 
     iterator_range<std::vector<int>::iterator, unreachable> r1 { r0.begin(), {} };
-    ::models<concepts::View>(r1);
-    ::models_not<concepts::SizedView>(r1);
-    CHECK(r1.first == vi.begin()+1);
-    r1.second = unreachable{};
+    ::models<concepts::View>(aux::copy(r1));
+    ::models_not<concepts::SizedView>(aux::copy(r1));
+    CHECK(r1.begin() == vi.begin()+1);
+    r1.end() = unreachable{};
 
-    ++r0.first;
+    ++r0.begin();
     CHECK(r0.begin() == vi.begin()+2);
     CHECK(r0.size() == 2u);
-    --r0.second;
+    --r0.end();
     CHECK(r0.end() == vi.end()-1);
     CHECK(r0.size() == 1u);
     CHECK(r0.front() == 3);
@@ -56,11 +57,11 @@ int main()
     CHECK(p1.first == vi.begin()+1);
 
     iterator_range<std::vector<int>::iterator, unreachable> r2 { p1 };
-    CHECK(r1.first == vi.begin()+1);
+    CHECK(r1.begin() == vi.begin()+1);
 
     std::list<int> li{1,2,3,4};
     sized_iterator_range<std::list<int>::iterator> l0 {li.begin(), li.end(), li.size()};
-    ::models<concepts::SizedView>(l0);
+    ::models<concepts::SizedView>(aux::copy(l0));
     CHECK(l0.begin() == li.begin());
     CHECK(l0.end() == li.end());
     CHECK(l0.size() == li.size());
@@ -68,8 +69,8 @@ int main()
     l0 = view::all(li);
 
     iterator_range<std::list<int>::iterator> l1 = l0;
-    CHECK(l1.first == li.begin());
-    CHECK(l1.second == li.end());
+    CHECK(l1.begin() == li.begin());
+    CHECK(l1.end() == li.end());
 
     return ::test_result();
 }

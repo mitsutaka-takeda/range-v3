@@ -47,14 +47,19 @@ namespace ranges
                 {
                     rng_->next();
                 }
-                Val const &get() const
+                Val &read() const noexcept
                 {
                     return rng_->cached();
                 }
-                bool done() const
+                bool equal(default_sentinel) const
                 {
                     return !*rng_->sin_;
                 }
+                Val && move() const noexcept
+                {
+                    return detail::move(rng_->cached());
+                }
+
             };
             void next()
             {
@@ -78,13 +83,13 @@ namespace ranges
             {
                 next(); // prime the pump
             }
-            Val & cached()
+            Val & cached() noexcept
             {
                 return obj_;
             }
         };
 
-    #if RANGES_CXX_NO_VARIABLE_TEMPLATES
+    #if !RANGES_CXX_VARIABLE_TEMPLATES
         template<typename Val>
         istream_range<Val> istream(std::istream & sin)
         {
@@ -102,12 +107,21 @@ namespace ranges
             }
         };
 
-        namespace
+    #if RANGES_CXX_INLINE_VARIABLES < RANGES_CXX_INLINE_VARIABLES_17
+        inline namespace
         {
             template<typename Val>
-            constexpr auto && istream = static_const<istream_fn<Val>>::value;
+            constexpr auto& istream = static_const<istream_fn<Val>>::value;
         }
-    #endif
+    #else  // RANGES_CXX_INLINE_VARIABLES >= RANGES_CXX_INLINE_VARIABLES_17
+        inline namespace function_objects
+        {
+            template<typename Val>
+            inline constexpr istream_fn<Val> istream{};
+        }
+    #endif  // RANGES_CXX_INLINE_VARIABLES
+
+    #endif  // RANGES_CXX_VARIABLE_TEMPLATES
         /// @}
     }
 }

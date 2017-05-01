@@ -12,6 +12,7 @@
 #ifndef RANGES_V3_VIEW_UNBOUNDED_HPP
 #define RANGES_V3_VIEW_UNBOUNDED_HPP
 
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/view_interface.hpp>
 #include <range/v3/utility/unreachable.hpp>
@@ -57,13 +58,12 @@ namespace ranges
 
             /// \relates unbounded_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& unbounded = static_const<unbounded_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(unbounded_fn, unbounded)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::unbounded_view)
 
 #endif

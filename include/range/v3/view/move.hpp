@@ -16,6 +16,7 @@
 
 #include <utility>
 #include <type_traits>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/size.hpp>
 #include <range/v3/begin_end.hpp>
@@ -41,14 +42,14 @@ namespace ranges
             friend range_access;
             struct adaptor : adaptor_base
             {
-                using value_type = range_value_t<Rng>;
-                range_rvalue_reference_t<Rng> get(range_iterator_t<Rng> it) const
+                using value_type = range_value_type_t<Rng>;
+                range_rvalue_reference_t<Rng> read(iterator_t<Rng> const &it) const
                 {
-                    return iter_move(it);
+                    return ranges::iter_move(it);
                 }
-                range_rvalue_reference_t<Rng> indirect_move(range_iterator_t<Rng> it) const
+                range_rvalue_reference_t<Rng> iter_move(iterator_t<Rng> const &it) const
                 {
-                    return iter_move(it);
+                    return ranges::iter_move(it);
                 }
             };
             adaptor begin_adaptor() const
@@ -62,10 +63,15 @@ namespace ranges
         public:
             move_view() = default;
             explicit move_view(Rng rng)
-              : view_adaptor_t<move_view>{std::move(rng)}
+              : move_view::view_adaptor{std::move(rng)}
             {}
+            CONCEPT_REQUIRES(SizedRange<Rng const>())
+            range_size_type_t<Rng> size() const
+            {
+                return ranges::size(this->base());
+            }
             CONCEPT_REQUIRES(SizedRange<Rng>())
-            range_size_t<Rng> size() const
+            range_size_type_t<Rng> size()
             {
                 return ranges::size(this->base());
             }
@@ -79,7 +85,7 @@ namespace ranges
                     CONCEPT_REQUIRES_(InputRange<Rng>())>
                 move_view<all_t<Rng>> operator()(Rng && rng) const
                 {
-                    return move_view<all_t<Rng>>{all(std::forward<Rng>(rng))};
+                    return move_view<all_t<Rng>>{all(static_cast<Rng&&>(rng))};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng,
@@ -95,13 +101,12 @@ namespace ranges
 
             /// \relates move_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& move = static_const<view<move_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<move_fn>, move)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::move_view)
 
 #endif

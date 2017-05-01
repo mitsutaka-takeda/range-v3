@@ -35,21 +35,20 @@ namespace ranges
             InputIterator<I>,
             OutputIterator<O, T1 const &>,
             IndirectlyCopyable<I, O>,
-            IndirectCallableRelation<equal_to, Projected<I, P>, T0 const *>>;
+            IndirectRelation<equal_to, projected<I, P>, T0 const *>>;
 
         /// \addtogroup group-algorithms
         /// @{
         struct replace_copy_fn
         {
             template<typename I, typename S, typename O, typename T0, typename T1, typename P = ident,
-                CONCEPT_REQUIRES_(ReplaceCopyable<I, O, T0, T1, P>() && IteratorRange<I, S>())>
-            tagged_pair<tag::in(I), tag::out(O)> operator()(I begin, S end, O out, T0 const & old_value, T1 const & new_value, P proj_ = {}) const
+                CONCEPT_REQUIRES_(ReplaceCopyable<I, O, T0, T1, P>() && Sentinel<S, I>())>
+            tagged_pair<tag::in(I), tag::out(O)> operator()(I begin, S end, O out, T0 const & old_value, T1 const & new_value, P proj = {}) const
             {
-                auto &&proj = as_function(proj_);
                 for(; begin != end; ++begin, ++out)
                 {
                     auto &&x = *begin;
-                    if(proj(x) == old_value)
+                    if(invoke(proj, x) == old_value)
                         *out = new_value;
                     else
                         *out = (decltype(x) &&) x;
@@ -58,9 +57,9 @@ namespace ranges
             }
 
             template<typename Rng, typename O, typename T0, typename T1, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(ReplaceCopyable<I, O, T0, T1, P>() && Range<Rng>())>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)>
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)>
             operator()(Rng &&rng, O out, T0 const & old_value, T1 const & new_value,
                 P proj = {}) const
             {
@@ -71,11 +70,8 @@ namespace ranges
 
         /// \sa `replace_copy_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& replace_copy = static_const<with_braced_init_args<replace_copy_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<replace_copy_fn>,
+                               replace_copy)
         /// @}
     } // namespace v3
 } // namespace ranges

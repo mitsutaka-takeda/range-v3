@@ -19,18 +19,19 @@
 #include <utility>
 #include <type_traits>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/size.hpp>
-#include <range/v3/distance.hpp>
 #include <range/v3/begin_end.hpp>
+#include <range/v3/empty.hpp>
 #include <range/v3/range_traits.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_facade.hpp>
+#include <range/v3/detail/optional.hpp>
 #include <range/v3/view/all.hpp>
 #include <range/v3/view/view.hpp>
 #include <range/v3/utility/box.hpp>
 #include <range/v3/utility/get.hpp>
-#include <range/v3/utility/optional.hpp>
 #include <range/v3/utility/iterator.hpp>
 #include <range/v3/utility/static_const.hpp>
 
@@ -38,36 +39,21 @@ namespace ranges
 {
     inline namespace v3
     {
-        /// \cond
-        namespace detail
-        {
-            template<typename Rng>
-            using cycle_end_ =
-                meta::if_<
-                    BoundedRange<Rng>,
-                    meta::nil_,
-                    box<optional<range_iterator_t<Rng>>, end_tag>>;
-        }
-        /// \endcond
-
         /// \addtogroup group-views
         ///@{
         template<typename Rng>
         struct cycled_view
           : view_facade<cycled_view<Rng>, infinite>
-          , private detail::cycle_end_<Rng>
+          , private detail::non_propagating_cache<
+                iterator_t<Rng>, cycled_view<Rng>, !BoundedRange<Rng>()>
         {
         private:
             CONCEPT_ASSERT(ForwardRange<Rng>());
             friend range_access;
             Rng rng_;
 
-            void dirty_(std::true_type) const
-            {}
-            void dirty_(std::false_type)
-            {
-                ranges::get<end_tag>(*this).reset();
-            }
+            using cache_t = detail::non_propagating_cache<
+                iterator_t<Rng>, cycled_view<Rng>, !BoundedRange<Rng>()>;
 
             template<bool IsConst>
             struct cursor
@@ -76,8 +62,8 @@ namespace ranges
                 template<typename T>
                 using constify_if = meta::invoke<meta::add_const_if_c<IsConst>, T>;
                 using cycled_view_t = constify_if<cycled_view>;
-                using difference_type_ = range_difference_t<Rng>;
-                using iterator = range_iterator_t<constify_if<Rng>>;
+                using difference_type_ = range_difference_type_t<Rng>;
+                using iterator = iterator_t<constify_if<Rng>>;
 
                 cycled_view_t *rng_;
                 iterator it_;
@@ -89,8 +75,8 @@ namespace ranges
                 template<bool CanBeEmpty = false>
                 iterator get_end_(std::false_type, meta::bool_<CanBeEmpty> = {}) const
                 {
-                    auto &end_ = ranges::get<end_tag>(*rng_);
-                    RANGES_ASSERT(CanBeEmpty || end_);
+                    auto &end_ = static_cast<cache_t&>(*rng_);
+                    RANGES_EXPECT(CanBeEmpty || end_);
                     if(CanBeEmpty && !end_)
                         end_ = ranges::next(it_, ranges::end(rng_->rng_));
                     return *end_;
@@ -99,7 +85,7 @@ namespace ranges
                 {}
                 void set_end_(std::false_type) const
                 {
-                    auto &end_ = ranges::get<end_tag>(*rng_);
+                    auto &end_ = static_cast<cache_t&>(*rng_);
                     if(!end_)
                         end_ = it_;
                 }
@@ -110,24 +96,24 @@ namespace ranges
                 explicit cursor(cycled_view_t &rng)
                   : rng_(&rng), it_(ranges::begin(rng.rng_))
                 {}
-                constexpr bool done() const
+                constexpr bool equal(default_sentinel) const
                 {
                     return false;
                 }
-                auto get() const
+                auto read() const
                 RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
                 (
                     *it_
                 )
                 bool equal(cursor const &pos) const
                 {
-                    RANGES_ASSERT(rng_ == pos.rng_);
+                    RANGES_EXPECT(rng_ == pos.rng_);
                     return it_ == pos.it_;
                 }
                 void next()
                 {
                     auto const end = ranges::end(rng_->rng_);
-                    RANGES_ASSERT(it_ != end);
+                    RANGES_EXPECT(it_ != end);
                     if(++it_ == end)
                     {
                         this->set_end_(BoundedRange<Rng>());
@@ -150,10 +136,10 @@ namespace ranges
                     auto const off = ((it_ - begin) + n) % d;
                     it_ = begin + (off < 0 ? off + d : off);
                 }
-                CONCEPT_REQUIRES(SizedIteratorRange<iterator, iterator>())
+                CONCEPT_REQUIRES(SizedSentinel<iterator, iterator>())
                 difference_type_ distance_to(cursor const &that) const
                 {
-                    RANGES_ASSERT(that.rng_ == rng_);
+                    RANGES_EXPECT(that.rng_ == rng_);
                     return that.it_ - it_;
                 }
             };
@@ -170,37 +156,18 @@ namespace ranges
 
         public:
             cycled_view() = default;
-            cycled_view(cycled_view &&that)
-              : detail::cycle_end_<Rng>{}
-              , rng_(std::move(that.rng_))
-            {}
-            cycled_view(cycled_view const &that)
-              : detail::cycle_end_<Rng>{}
-              , rng_(that.rng_)
-            {}
-            /// \pre <tt>distance(rng) != 0</tt>
+            /// \pre <tt>!empty(rng)</tt>
             explicit cycled_view(Rng rng)
-              : detail::cycle_end_<Rng>{}
-              , rng_(std::move(rng))
+              : rng_(std::move(rng))
             {
-                RANGES_ASSERT(ranges::distance(rng) != 0);
-            }
-            cycled_view& operator=(cycled_view &&that)
-            {
-                rng_ = std::move(that.rng_);
-                this->dirty_(BoundedRange<Rng>{});
-                return *this;
-            }
-            cycled_view& operator=(cycled_view const &that)
-            {
-                rng_ = that.rng_;
-                this->dirty_(BoundedRange<Rng>{});
-                return *this;
+                RANGES_EXPECT(!ranges::empty(rng_));
             }
         };
 
         namespace view
         {
+            /// Returns an infinite range that endlessly repeats the source
+            /// range.
             struct cycle_fn
             {
             private:
@@ -209,11 +176,11 @@ namespace ranges
                 using Concept = ForwardRange<T>;
 
             public:
-                /// \pre <tt>distance(rng) != 0</tt>
+                /// \pre <tt>!empty(rng)</tt>
                 template<typename Rng, CONCEPT_REQUIRES_(Concept<Rng>())>
                 cycled_view<all_t<Rng>> operator()(Rng &&rng) const
                 {
-                    return cycled_view<all_t<Rng>>{all(std::forward<Rng>(rng))};
+                    return cycled_view<all_t<Rng>>{all(static_cast<Rng&&>(rng))};
                 }
 
 #ifndef RANGES_DOXYGEN_INVOKED
@@ -229,14 +196,12 @@ namespace ranges
 
             /// \relates cycle_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto &&cycle = static_const<view<cycle_fn>>::value;
-            }
-
+            RANGES_INLINE_VARIABLE(view<cycle_fn>, cycle)
        } // namespace view
        /// @}
     } // namespace v3
 } // namespace ranges
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::cycled_view)
 
 #endif

@@ -31,7 +31,7 @@ namespace ranges
         template<typename I, typename C, typename T, typename P = ident>
         using ReplaceIfable = meta::strict_and<
             InputIterator<I>,
-            IndirectCallablePredicate<C, Projected<I, P>>,
+            IndirectPredicate<C, projected<I, P>>,
             Writable<I, T const &>>;
 
         /// \addtogroup group-algorithms
@@ -39,21 +39,19 @@ namespace ranges
         struct replace_if_fn
         {
             template<typename I, typename S, typename C, typename T, typename P = ident,
-                CONCEPT_REQUIRES_(ReplaceIfable<I, C, T, P>() && IteratorRange<I, S>())>
-            I operator()(I begin, S end, C pred_, T const & new_value, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(ReplaceIfable<I, C, T, P>() && Sentinel<S, I>())>
+            I operator()(I begin, S end, C pred, T const & new_value, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 for(; begin != end; ++begin)
-                    if(pred(proj(*begin)))
+                    if(invoke(pred, invoke(proj, *begin)))
                         *begin = new_value;
                 return begin;
             }
 
             template<typename Rng, typename C, typename T, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(ReplaceIfable<I, C, T, P>() && Range<Rng>())>
-            range_safe_iterator_t<Rng>
+            safe_iterator_t<Rng>
             operator()(Rng &&rng, C pred, T const & new_value, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(pred), new_value, std::move(proj));
@@ -62,11 +60,7 @@ namespace ranges
 
         /// \sa `replace_if_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& replace_if = static_const<with_braced_init_args<replace_if_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<replace_if_fn>, replace_if)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -32,24 +32,22 @@ namespace ranges
         struct max_element_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(ForwardIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallableRelation<C, Projected<I, P>>())>
-            I operator()(I begin, S end, C pred_ = C{}, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(ForwardIterator<I>() && Sentinel<S, I>() &&
+                    IndirectRelation<C, projected<I, P>>())>
+            I operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
-                auto && pred = as_function(pred_);
-                auto && proj = as_function(proj_);
                 if(begin != end)
                     for(auto tmp = next(begin); tmp != end; ++tmp)
-                        if(pred(proj(*begin), proj(*tmp)))
+                        if(invoke(pred, invoke(proj, *begin), invoke(proj, *tmp)))
                             begin = tmp;
                 return begin;
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(ForwardRange<Rng>() &&
-                    IndirectCallableRelation<C, Projected<I, P>>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
+                    IndirectRelation<C, projected<I, P>>())>
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(pred), std::move(proj));
             }
@@ -57,11 +55,7 @@ namespace ranges
 
         /// \sa `max_element_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& max_element = static_const<with_braced_init_args<max_element_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<max_element_fn>, max_element)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -32,24 +32,23 @@ namespace ranges
         struct count_fn
         {
             template<typename I, typename S, typename V, typename P = ident,
-                CONCEPT_REQUIRES_(InputIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallableRelation<equal_to, Projected<I, P>, V const *>())>
-            iterator_difference_t<I>
-            operator()(I begin, S end, V const & val, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(InputIterator<I>() && Sentinel<S, I>() &&
+                    IndirectRelation<equal_to, projected<I, P>, V const *>())>
+            difference_type_t<I>
+            operator()(I begin, S end, V const & val, P proj = P{}) const
             {
-                auto &&proj = as_function(proj_);
-                iterator_difference_t<I> n = 0;
+                difference_type_t<I> n = 0;
                 for(; begin != end; ++begin)
-                    if(proj(*begin) == val)
+                    if(invoke(proj, *begin) == val)
                         ++n;
                 return n;
             }
 
             template<typename Rng, typename V, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(InputRange<Rng>() &&
-                    IndirectCallableRelation<equal_to, Projected<I, P>, V const *>())>
-            iterator_difference_t<I>
+                    IndirectRelation<equal_to, projected<I, P>, V const *>())>
+            difference_type_t<I>
             operator()(Rng &&rng, V const & val, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), val, std::move(proj));
@@ -58,11 +57,8 @@ namespace ranges
 
         /// \sa `count_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& count = static_const<with_braced_init_args<with_braced_init_args<count_fn>>>::value;
-        }
-
+      RANGES_INLINE_VARIABLE(with_braced_init_args<with_braced_init_args<count_fn>>,
+                               count)
         /// @}
     } // namespace v3
 } // namespace ranges

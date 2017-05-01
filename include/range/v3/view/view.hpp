@@ -52,7 +52,7 @@ namespace ranges
                     static auto bind(Ts &&...ts)
                     RANGES_DECLTYPE_AUTO_RETURN
                     (
-                        V::bind(std::forward<Ts>(ts)...)
+                        V::bind(static_cast<Ts&&>(ts)...)
                     )
                 };
             };
@@ -68,15 +68,12 @@ namespace ranges
 
             /// \ingroup group-views
             /// \sa make_view_fn
-            namespace
-            {
-                constexpr auto&& make_view = static_const<make_view_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(make_view_fn, make_view)
 
             template<typename Rng>
             using ViewableRange = meta::and_<
                 Range<Rng>,
-                meta::or_<std::is_lvalue_reference<Rng>, View<Rng>>>;
+                meta::or_<std::is_lvalue_reference<Rng>, View<uncvref_t<Rng>>>>;
 
             template<typename View>
             struct view : pipeable<view<View>>
@@ -86,7 +83,7 @@ namespace ranges
                 friend pipeable_access;
 
                 template<typename Rng, typename ...Rest>
-                using ViewConcept = meta::and_<ViewableRange<Rng>, Function<View, Rng, Rest...>>;
+                using ViewConcept = meta::and_<ViewableRange<Rng>, Invocable<View&, Rng, Rest...>>;
 
                 // Pipeing requires range arguments or lvalue containers.
                 template<typename Rng, typename Vw,
@@ -94,8 +91,9 @@ namespace ranges
                 static auto pipe(Rng && rng, Vw && v)
                 RANGES_DECLTYPE_AUTO_RETURN
                 (
-                    v.view_(std::forward<Rng>(rng))
+                    v.view_(static_cast<Rng&&>(rng))
                 )
+
             #ifndef RANGES_DOXYGEN_INVOKED
                 // For better error messages:
                 template<typename Rng, typename Vw,
@@ -106,33 +104,36 @@ namespace ranges
                         "The type Rng must be a model of the Range concept.");
                     // BUGBUG This isn't a very helpful message. This is probably the wrong place
                     // to put this check:
-                    CONCEPT_ASSERT_MSG(Function<View, Rng>(),
+                    CONCEPT_ASSERT_MSG(Invocable<View&, Rng>(),
                         "This view is not callable with this range type.");
                     static_assert(ranges::View<Rng>() || std::is_lvalue_reference<Rng>(),
-                        "You can't pipe an rvalue container into an view. First, save the container into "
+                        "You can't pipe an rvalue container into a view. First, save the container into "
                         "a named variable, and then pipe it to the view.");
                 }
             #endif
+
             public:
                 view() = default;
                 view(View a)
                   : view_(std::move(a))
                 {}
+
                 // Calling directly requires View arguments or lvalue containers.
                 template<typename Rng, typename...Rest,
                     CONCEPT_REQUIRES_(ViewConcept<Rng, Rest...>())>
                 auto operator()(Rng && rng, Rest &&... rest) const
                 RANGES_DECLTYPE_AUTO_RETURN
                 (
-                    view_(std::forward<Rng>(rng), std::forward<Rest>(rest)...)
+                    view_(static_cast<Rng&&>(rng), static_cast<Rest&&>(rest)...)
                 )
+
                 // Currying overload.
                 template<typename...Ts, typename V = View>
                 auto operator()(Ts &&... ts) const
                 RANGES_DECLTYPE_AUTO_RETURN
                 (
                     make_view(view_access::impl<V>::bind(view_,
-                        std::forward<Ts>(ts)...))
+                        static_cast<Ts&&>(ts)...))
                 )
             };
             /// \endcond

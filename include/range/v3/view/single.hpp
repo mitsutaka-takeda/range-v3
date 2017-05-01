@@ -16,6 +16,7 @@
 
 #include <utility>
 #include <type_traits>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/begin_end.hpp>
 #include <range/v3/range_concepts.hpp>
@@ -23,6 +24,7 @@
 #include <range/v3/view_facade.hpp>
 #include <range/v3/utility/iterator_concepts.hpp>
 #include <range/v3/utility/iterator_traits.hpp>
+#include <range/v3/utility/semiregular.hpp>
 #include <range/v3/utility/static_const.hpp>
 
 namespace ranges
@@ -36,23 +38,23 @@ namespace ranges
           : view_facade<single_view<Val>, (cardinality)1>
         {
         private:
-            friend struct range_access;
-            Val value_;
+            friend struct ranges::range_access;
+            semiregular_t<Val> value_;
             struct cursor
             {
             private:
-                Val value_;
+                semiregular_t<Val> value_;
                 bool done_;
             public:
                 cursor() = default;
-                cursor(Val value)
+                explicit cursor(Val value)
                   : value_(std::move(value)), done_(false)
                 {}
-                Val get() const
+                Val read() const
                 {
                     return value_;
                 }
-                bool done() const
+                bool equal(default_sentinel) const
                 {
                     return done_;
                 }
@@ -71,7 +73,7 @@ namespace ranges
                 void advance(std::ptrdiff_t n)
                 {
                     n += done_;
-                    RANGES_ASSERT(n == 0 || n == 1);
+                    RANGES_EXPECT(n == 0 || n == 1);
                     done_ = n != 0;
                 }
                 std::ptrdiff_t distance_to(cursor const &that) const
@@ -81,7 +83,7 @@ namespace ranges
             };
             cursor begin_cursor() const
             {
-                return {value_};
+                return cursor{value_};
             }
         public:
             single_view() = default;
@@ -98,33 +100,35 @@ namespace ranges
         {
             struct single_fn
             {
-                template<typename Val, CONCEPT_REQUIRES_(SemiRegular<Val>())>
+                template<typename Val, CONCEPT_REQUIRES_(CopyConstructible<Val>())>
                 single_view<Val> operator()(Val value) const
                 {
                     return single_view<Val>{std::move(value)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 // For error reporting
-                template<typename Val, CONCEPT_REQUIRES_(!SemiRegular<uncvref_t<Val>>())>
-                void operator()(Val &&) const
+                template<typename Arg, typename Val = detail::decay_t<Arg>,
+                    CONCEPT_REQUIRES_(!(CopyConstructible<Val>() && Constructible<Val, Arg>()))>
+                void operator()(Arg &&) const
                 {
-                    CONCEPT_ASSERT_MSG(SemiRegular<Val>(),
-                        "The object passed to view::single must be a model of the SemiRegular "
-                        "concept; that is, it needs to be default constructible, copy and move "
-                        " constructible, and destructible.");
+                    CONCEPT_ASSERT_MSG(CopyConstructible<Val>(),
+                        "The object passed to view::single must be a model of the CopyConstructible "
+                        "concept; that is, it needs to be copy and move constructible, and destructible.");
+                    CONCEPT_ASSERT_MSG(!CopyConstructible<Val>() || Constructible<Val, Arg>(),
+                        "The object type passed to view::single must be initializable from the "
+                        "actual argument expression.");
                 }
             #endif
             };
 
             /// \relates single_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& single = static_const<single_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(single_fn, single)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::single_view)
 
 #endif

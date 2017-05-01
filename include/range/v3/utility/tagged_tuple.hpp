@@ -14,9 +14,6 @@
 #define RANGES_V3_UTILITY_TAGGED_TUPLE_HPP
 
 #include <tuple>
-#include <utility>
-#include <functional>
-#include <meta/meta.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/utility/tagged_pair.hpp>
 
@@ -32,7 +29,7 @@ namespace ranges
         constexpr tagged_tuple<Tags(bind_element_t<Ts>)...>
         make_tagged_tuple(Ts &&... ts)
         {
-            return tagged_tuple<Tags(bind_element_t<Ts>)...>{detail::forward<Ts>(ts)...};
+            return tagged_tuple<Tags(bind_element_t<Ts>)...>{static_cast<Ts&&>(ts)...};
         }
     }
 }

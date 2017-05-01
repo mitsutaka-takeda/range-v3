@@ -1,164 +1,145 @@
-cmake_minimum_required(VERSION 3.3)
-set(CMAKE_LEGACY_CYGWIN_WIN32 0)
+cmake_minimum_required(VERSION 3.0)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(Range-v3)
 
 find_package(Doxygen)
 find_package(Git)
 
+include_directories(include)
+
+enable_testing()
+include(CTest)
+include(CheckCXXCompilerFlag)
+include(CMakeDependentOption)
+
+option(RANGES_MODULES "Enables Clang Modules." OFF)
+
+find_program(MEMORYCHECK_COMMAND valgrind)
+if(MEMORYCHECK_COMMAND)
+  message("Valgrind: ${MEMORYCHECK_COMMAND}")
+  set(MEMORYCHECK_COMMAND_OPTIONS "--trace-children=yes --leak-check=full")
+else()
+  message("Valgrind not found")
+endif()
+
+macro(range_v3_append_flag testname flag)
+  check_cxx_compiler_flag(${flag} ${testname})
+  if (${testname})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flag}")
+  endif()
+endmacro()
+
 # Select C++ standard to be used for compiling the tests,
 # for example: 11, 14, 17, 1z, 1y, ...
 #
-if(RANGES_CXX_STD)
-else()
+if(NOT RANGES_CXX_STD)
   # Defaults to C++11 if not set:
   set(RANGES_CXX_STD 11)
 endif()
 
-enable_testing()
-include(CTest)
-find_program(MEMORYCHECK_COMMAND valgrind)
-if(MEMORYCHECK_COMMAND-NOTFOUND)
-  message("[W] Valgrind not found")
-else()
-  message("Valgrind: ${MEMORYCHECK_COMMAND}")
-  set(MEMORYCHECK_COMMAND_OPTIONS "--trace-children=yes --leak-check=full")
-endif()
-
-add_library(
-  range-v3
-  INTERFACE
-  )
-target_include_directories(
-  range-v3
-  INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  )
-
-# Clang/C2 will blow up with various parts of the standard library
-# if compiling with -std less than c++14.
-if(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
-   ("x${CMAKE_CXX_SIMULATE_ID}x" STREQUAL "xMSVCx") AND
-   ("${RANGES_CXX_STD}" STREQUAL "11"))
-  set(CMAKE_CXX_STANDARD 14)
-  set(RANGES_CXX_STD 14)
-endif()
-
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-  add_compile_options(
-    -std=c++${RANGES_CXX_STD}
-    -ftemplate-backtrace-limit=0
-    -Weverything
-    -Werror
-    -pedantic-errors
-    -Wno-error=deprecated-declarations
-    -Wno-error=deprecated
-    -Wno-c++98-compat
-    -Wno-c++98-compat-pedantic
-    -Wno-return-stack-address
-    -Wno-unused-variable
-    -Wno-unused-parameter
-    -Wno-weak-vtables
-    -Wno-padded
-    -Wno-global-constructors
-    -Wno-exit-time-destructors
-    -Wno-shorten-64-to-32
-    -Wno-sign-conversion
-    -Wno-missing-prototypes
-    -Wno-missing-variable-declarations
-    -Wno-shadow
-    -Wno-old-style-cast
-    -Wno-documentation
-    -Wno-documentation-unknown-command
-    $<$<CONFIG:Debug>:-O0>
-    $<$<CONFIG:Debug>:-fno-inline>
-    $<$<CONFIG:Debug>:-g3>
-    $<$<CONFIG:Debug>:-fstack-protector-all>
-    $<$<CONFIG:Release>:-Ofast>
-    $<$<CONFIG:Release>:-g0>
-    $<$<CONFIG:Release>:-march=native>
-    $<$<CONFIG:Release>:-mtune=native>
-    $<$<CONFIG:Release>:-DNDEBUG>
-    )
+if("x${CMAKE_CXX_COMPILER_ID}" MATCHES "x.*Clang")
+  # Clang/C2 will blow up with various parts of the standard library
+  # if compiling with -std less than c++14.
+  if(("x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC") AND (RANGES_CXX_STD EQUAL 11))
+    set(CMAKE_CXX_STANDARD 14)
+    set(RANGES_CXX_STD 14)
+  endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${RANGES_CXX_STD} -ftemplate-backtrace-limit=0")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weverything -Werror -pedantic-errors")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-weak-vtables -Wno-padded")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-prototypes -Wno-missing-variable-declarations")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shadow -Wno-old-style-cast")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-documentation -Wno-documentation-unknown-command")
+  if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-global-constructors -Wno-exit-time-destructors")
+  endif()
+  if (RANGES_MODULES)
+    if(NOT RANGES_LIBCXX_MODULE)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules -fmodule-map-file=${PROJECT_SOURCE_DIR}/include/module.modulemap -fmodules-cache-path=${PROJECT_BINARY_DIR}/module.cache")
+    else()
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules -fmodule-map-file=${PROJECT_SOURCE_DIR}/include/module.modulemap -fmodules-cache-path=${PROJECT_BINARY_DIR}/module.cache -fno-implicit-module-maps -fmodule-map-file=${RANGES_LIBCXX_MODULE}")
+    endif()
+  endif()
+  set(CMAKE_CXX_FLAGS_DEBUG "-O0 -fno-inline -g3 -fstack-protector-all")
+  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -g0 -DNDEBUG")
 elseif(CMAKE_COMPILER_IS_GNUCXX)
-  add_compile_options(
-    -std=c++${RANGES_CXX_STD}
-    -ftemplate-backtrace-limit=0
-    -Wall
-    -Wextra
-    -pedantic
-    -Werror
-    -pedantic-errors
-    -Wno-error=deprecated-declarations
-    -Wno-missing-field-initializers
-    -Wno-unused-parameter
-    $<$<CONFIG:Debug>:-O0>
-    $<$<CONFIG:Debug>:-fno-inline>
-    $<$<CONFIG:Debug>:-g3>
-    $<$<CONFIG:Debug>:-fstack-protector-all>
-    $<$<CONFIG:Release>:-Ofast>
-    $<$<CONFIG:Release>:-g0>
-    $<$<CONFIG:Release>:-march=native>
-    $<$<CONFIG:Release>:-mtune=native>
-    $<$<CONFIG:Release>:-DNDEBUG>
-    )
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${RANGES_CXX_STD} -ftemplate-backtrace-limit=0")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Werror -pedantic-errors")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "6.0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-strict-overflow")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
+    endif()
+  endif()
+  set(CMAKE_CXX_FLAGS_DEBUG "-O0 -fno-inline -g3 -fstack-protector-all")
+  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -g0 -DNDEBUG")
 # else()
-#   message(FATAL_ERROR "Unknown compiler.")
+#   message(FATAL_ERROR "Unknown compiler. Good luck!")
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-add_subdirectory(doc)
-
-if(BIICODE)
-    ADD_BIICODE_TARGETS()
-
-    string(REPLACE " " ";" TARGET_CXX_FLAGS         ${CMAKE_CXX_FLAGS})
-    string(REPLACE " " ";" TARGET_CXX_FLAGS_DEBUG   ${CMAKE_CXX_FLAGS_DEBUG})
-    string(REPLACE " " ";" TARGET_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
-
-    target_compile_options(${BII_BLOCK_TARGET} INTERFACE ${TARGET_CXX_FLAGS}
-                           $<$<CONFIG:Debug>:${TARGET_CXX_FLAGS_DEBUG}>
-                           $<$<CONFIG:Release>:${TARGET_CXX_FLAGS_RELEASE}>)
-
-    return()
-endif()
-
-#   range_v3_list_remove_glob(<list> <GLOB|GLOB_RECURSE> [globbing expressions]...)
-#
-# Generates a list of files matching the given glob expressions, and remove
-# the matched elements from the given <list>.
-#
-# Adapted from Boost.Hana: https://github.com/ldionne/hana/
-#
-macro(range_v3_list_remove_glob list glob)
-    file(${glob} _bhlrg10321023_avoid_macro_clash_matches ${ARGN})
-    list(REMOVE_ITEM ${list} ${_bhlrg10321023_avoid_macro_clash_matches})
-endmacro()
+range_v3_append_flag(RANGE_V3_HAS_MARCH_NATIVE "-march=native")
+range_v3_append_flag(RANGE_V3_HAS_MTUNE_NATIVE "-mtune=native")
 
 # Test all headers
-if(NOT RANGE_V3_NO_HEADER_CHECK)
-  include(CheckIncludeFileCXX)
-  file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
-  range_v3_list_remove_glob(RANGE_V3_PUBLIC_HEADERS GLOB_RECURSE
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/range/v3/detail/re_enable_warnings.hpp"
-    )
+file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS
+                  RELATIVE "${CMAKE_SOURCE_DIR}/include"
+                  "${CMAKE_SOURCE_DIR}/include/*.hpp")
+				  
+# Add header files as sources to fix MSVS 2017 not finding source during debugging
+file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS_ABSOLUTE
+                  "${CMAKE_SOURCE_DIR}/include/*.hpp")
 
-  set(CMAKE_REQUIRED_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include")
-  set(CMAKE_REQUIRED_FLAGS "-std=c++${RANGES_CXX_STD}")
-  foreach(_header IN LISTS RANGE_V3_PUBLIC_HEADERS)
-    file(RELATIVE_PATH _relative "${CMAKE_CURRENT_SOURCE_DIR}/include" "${_header}")
-    check_include_file_cxx("${_relative}" ${_relative}_FOUND)
-    if(NOT ${_relative}_FOUND)
-      message(FATAL_ERROR "Compilation of header ${_relative} failed")
-    endif()
-  endforeach()
+include(TestHeaders)
+if(RANGE_V3_NO_HEADER_CHECK)
+  add_custom_target(headers SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
+else()
+  add_custom_target(headers ALL SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
+endif()
+generate_standalone_header_tests(EXCLUDE_FROM_ALL MASTER_TARGET headers HEADERS ${RANGE_V3_PUBLIC_HEADERS})
+
+# Grab the range-v3 version numbers:
+include(${CMAKE_SOURCE_DIR}/Version.cmake)
+set(RANGE_V3_VERSION ${RANGE_V3_MAJOR}.${RANGE_V3_MINOR}.${RANGE_V3_PATCHLEVEL})
+
+# Try to build a new version.hpp
+configure_file(version.hpp.in include/range/v3/version.hpp @ONLY)
+file(STRINGS ${CMAKE_CURRENT_BINARY_DIR}/include/range/v3/version.hpp RANGE_V3_OLD_VERSION_HPP)
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/include/range/v3/version.hpp RANGE_V3_NEW_VERSION_HPP)
+
+# If the new version.hpp is materially different from the one in the source
+# directory, update it, amend the most recent commit, and tag the commit.
+if(NOT RANGE_V3_NEW_VERSION_HPP STREQUAL RANGE_V3_OLD_VERSION_HPP)
+  # Check that Version.cmake is the only changed file:
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" status -s -uno
+    OUTPUT_VARIABLE RANGE_V3_GIT_STATUS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (NOT "x${RANGE_V3_GIT_STATUS}" STREQUAL "x M Version.cmake")
+    message(FATAL_ERROR "Cannot update version.hpp: range-v3 source directory has a dirty status")
+  endif()
+  file(
+    COPY ${CMAKE_CURRENT_BINARY_DIR}/include/range/v3/version.hpp
+    DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/include/range/v3
+  )
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" add -u
+  )
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" commit --amend --no-edit
+  )
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" tag -f -a "${RANGE_V3_VERSION}" -m "${RANGE_V3_VERSION}"
+  )
 endif()
 
+add_subdirectory(doc)
 add_subdirectory(test)
 add_subdirectory(example)
 add_subdirectory(perf)
-add_subdirectory(scratch)
 
 install(DIRECTORY include/ DESTINATION include
         FILES_MATCHING PATTERN "*.hpp")

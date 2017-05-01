@@ -34,18 +34,15 @@ namespace ranges
         struct partial_sort_fn
         {
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(Sortable<I, C, P>() && RandomAccessIterator<I>() && IteratorRange<I, S>())>
-            I operator()(I begin, I middle, S end, C pred_ = C{}, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(Sortable<I, C, P>() && RandomAccessIterator<I>() && Sentinel<S, I>())>
+            I operator()(I begin, I middle, S end, C pred = C{}, P proj = P{}) const
             {
-                auto && pred = as_function(pred_);
-                auto && proj = as_function(proj_);
-
                 make_heap(begin, middle, std::ref(pred), std::ref(proj));
                 auto const len = middle - begin;
                 I i = middle;
                 for(; i != end; ++i)
                 {
-                    if(pred(proj(*i), proj(*begin)))
+                    if(invoke(pred, invoke(proj, *i), invoke(proj, *begin)))
                     {
                         iter_swap(i, begin);
                         detail::sift_down_n(begin, len, begin, std::ref(pred), std::ref(proj));
@@ -56,9 +53,9 @@ namespace ranges
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Sortable<I, C, P>() && RandomAccessRange<Rng>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, I middle, C pred = C{},
+            safe_iterator_t<Rng> operator()(Rng &&rng, I middle, C pred = C{},
                 P proj = P{}) const
             {
                 return (*this)(begin(rng), std::move(middle), end(rng), std::move(pred),
@@ -68,11 +65,8 @@ namespace ranges
 
         /// \sa `partial_sort_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& partial_sort = static_const<with_braced_init_args<partial_sort_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<partial_sort_fn>,
+                               partial_sort)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -32,26 +32,26 @@ namespace ranges
             ///
             /// range-based version of the \c is_sorted std algorithm
             ///
-            /// Works on ForwardViews
+            /// Works on ForwardRanges
             ///
-            /// \pre `Rng` is a model of the `ForwardView` concept
+            /// \pre `Rng` is a model of the `ForwardRange` concept
             /// \pre `I` is a model of the `ForwardIterator` concept
-            /// \pre `S` is a model of the `Sentinel<I>` concept
-            /// \pre `R` is a model of the `Relation<Value_Type<I>>` concept
+            /// \pre `S` and `I` model the `Sentinel<S, I>` concept
+            /// \pre `R` and `projected<I, P>` model the `IndirectRelation<R, projected<I, P>>` concept
             ///
             template<typename I, typename S, typename R = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(ForwardIterator<I>() && IteratorRange<I, S>() &&
-                       IndirectCallableRelation<R, Projected<I, P>>())>
-            bool operator()(I begin, S end, R rel = R{}, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(ForwardIterator<I>() && Sentinel<S, I>() &&
+                       IndirectRelation<R, projected<I, P>>())>
+            bool operator()(I begin, S end, R rel = R{}, P proj = P{}) const
             {
                 return is_sorted_until(std::move(begin), end, std::move(rel),
-                                       std::move(proj_)) == end;
+                                       std::move(proj)) == end;
             }
 
             template<typename Rng, typename R = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(ForwardRange<Rng>() &&
-                    IndirectCallableRelation<R, Projected<I, P>>())>
+                    IndirectRelation<R, projected<I, P>>())>
             bool operator()(Rng &&rng, R rel = R{}, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(rel), std::move(proj));
@@ -60,11 +60,7 @@ namespace ranges
 
         /// \sa `is_sorted_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& is_sorted = static_const<with_braced_init_args<is_sorted_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<is_sorted_fn>, is_sorted)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -40,19 +40,17 @@ namespace ranges
             /// \pre `Rng` is a model of the `Range` concept
             template<typename I, typename S, typename V2, typename C = ordered_less,
                 typename P = ident,
-                CONCEPT_REQUIRES_(IteratorRange<I, S>() && BinarySearchable<I, V2, C, P>())>
+                CONCEPT_REQUIRES_(Sentinel<S, I>() && BinarySearchable<I, V2, C, P>())>
             bool
             operator()(I begin, S end, V2 const &val, C pred = C{}, P proj = P{}) const
             {
-                begin = lower_bound(std::move(begin), end, val, pred, proj);
-                auto &&ipred = as_function(pred);
-                auto &&iproj = as_function(proj);
-                return begin != end && !ipred(val, iproj(*begin));
+                begin = lower_bound(std::move(begin), end, val, std::ref(pred), std::ref(proj));
+                return begin != end && !invoke(pred, val, invoke(proj, *begin));
             }
 
             /// \overload
             template<typename Rng, typename V2, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Range<Rng>() && BinarySearchable<I, V2, C, P>())>
             bool
             operator()(Rng &&rng, V2 const &val, C pred = C{}, P proj = P{}) const
@@ -65,11 +63,8 @@ namespace ranges
 
         /// \sa `binary_search_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& binary_search = static_const<with_braced_init_args<binary_search_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<binary_search_fn>,
+                               binary_search)
         /// @}
     } // namespace v3
 } // namespace ranges

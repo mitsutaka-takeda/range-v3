@@ -14,7 +14,8 @@
 #ifndef RANGES_V3_ALGORITHM_HPP
 #define RANGES_V3_ALGORITHM_HPP
 
-#include <range/v3/detail/disable_warnings.hpp>
+#include <range/v3/detail/config.hpp>
+RANGES_DISABLE_WARNINGS
 
 #include <range/v3/algorithm/adjacent_find.hpp>
 #include <range/v3/algorithm/all_of.hpp>
@@ -36,6 +37,7 @@
 #include <range/v3/algorithm/find_if.hpp>
 #include <range/v3/algorithm/find_if_not.hpp>
 #include <range/v3/algorithm/for_each.hpp>
+#include <range/v3/algorithm/for_each_n.hpp>
 #include <range/v3/algorithm/generate.hpp>
 #include <range/v3/algorithm/generate_n.hpp>
 #include <range/v3/algorithm/heap_algorithm.hpp>
@@ -48,7 +50,6 @@
 #include <range/v3/algorithm/max.hpp>
 #include <range/v3/algorithm/max_element.hpp>
 #include <range/v3/algorithm/merge.hpp>
-#include <range/v3/algorithm/merge_move.hpp>
 #include <range/v3/algorithm/min.hpp>
 #include <range/v3/algorithm/min_element.hpp>
 #include <range/v3/algorithm/minmax.hpp>
@@ -62,10 +63,8 @@
 #include <range/v3/algorithm/partial_sort_copy.hpp>
 #include <range/v3/algorithm/partition.hpp>
 #include <range/v3/algorithm/partition_copy.hpp>
-#include <range/v3/algorithm/partition_move.hpp>
 #include <range/v3/algorithm/partition_point.hpp>
 #include <range/v3/algorithm/permutation.hpp>
-#include <range/v3/algorithm/random_shuffle.hpp>
 #include <range/v3/algorithm/remove.hpp>
 #include <range/v3/algorithm/remove_copy.hpp>
 #include <range/v3/algorithm/remove_copy_if.hpp>
@@ -78,6 +77,7 @@
 #include <range/v3/algorithm/reverse_copy.hpp>
 #include <range/v3/algorithm/rotate.hpp>
 #include <range/v3/algorithm/rotate_copy.hpp>
+#include <range/v3/algorithm/sample.hpp>
 #include <range/v3/algorithm/search.hpp>
 #include <range/v3/algorithm/search_n.hpp>
 #include <range/v3/algorithm/set_algorithm.hpp>
@@ -99,6 +99,6 @@
 #include <range/v3/algorithm/aux_/sort_n_with_buffer.hpp>
 #include <range/v3/algorithm/aux_/upper_bound_n.hpp>
 
-#include <range/v3/detail/re_enable_warnings.hpp>
+RANGES_RE_ENABLE_WARNINGS
 
 #endif

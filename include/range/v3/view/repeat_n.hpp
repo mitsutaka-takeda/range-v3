@@ -14,6 +14,8 @@
 #ifndef RANGES_V3_VIEW_REPEAT_N_HPP
 #define RANGES_V3_VIEW_REPEAT_N_HPP
 
+#include <utility>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_facade.hpp>
@@ -45,18 +47,18 @@ namespace ranges
             struct cursor
             {
             private:
-                Val value_;
+                Val const *value_;
                 std::ptrdiff_t n_;
             public:
                 cursor() = default;
-                cursor(Val value, std::ptrdiff_t n)
-                  : value_(std::move(value)), n_(n)
+                cursor(Val const &value, std::ptrdiff_t n)
+                  : value_(std::addressof(value)), n_(n)
                 {}
-                Val get() const
+                Val const &read() const
                 {
-                    return value_;
+                    return *value_;
                 }
-                constexpr bool done() const
+                constexpr bool equal(default_sentinel) const
                 {
                     return 0 == n_;
                 }
@@ -66,7 +68,7 @@ namespace ranges
                 }
                 void next()
                 {
-                    RANGES_ASSERT(0 != n_);
+                    RANGES_EXPECT(0 != n_);
                     --n_;
                 }
                 void prev()
@@ -89,7 +91,7 @@ namespace ranges
         public:
             repeat_n_view() = default;
             constexpr repeat_n_view(Val value, std::ptrdiff_t n)
-              : value_(detail::move(value)), n_((RANGES_ASSERT(0 <= n), n))
+              : value_(detail::move(value)), n_((RANGES_EXPECT(0 <= n), n))
             {}
             constexpr std::size_t size() const
             {
@@ -121,13 +123,12 @@ namespace ranges
 
             /// \relates repeat_n_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& repeat_n = static_const<repeat_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(repeat_n_fn, repeat_n)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::repeat_n_view)
 
 #endif

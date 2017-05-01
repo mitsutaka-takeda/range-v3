@@ -47,11 +47,11 @@ namespace ranges
                 struct ConceptImpl
                 {
                     template<typename Rng, typename Fun,
-                        typename I = range_iterator_t<Rng>>
-                    auto requires_(Rng&&, Fun&&) -> decltype(
+                        typename I = iterator_t<Rng>>
+                    auto requires_() -> decltype(
                         concepts::valid_expr(
                             concepts::model_of<concepts::ForwardRange, Rng>(),
-                            concepts::is_true(IndirectCallablePredicate<Fun, range_iterator_t<Rng>>{}),
+                            concepts::is_true(IndirectPredicate<Fun, iterator_t<Rng>>{}),
                             concepts::model_of<concepts::ErasableRange, Rng, I, I>()
                         ));
                 };
@@ -60,13 +60,13 @@ namespace ranges
                 using Concept = concepts::models<ConceptImpl, Rng, Fun>;
 
                 template<typename Rng, typename Fun,
-                    typename I = range_iterator_t<Rng>,
+                    typename I = iterator_t<Rng>,
                     CONCEPT_REQUIRES_(Concept<Rng, Fun>())>
                 Rng operator()(Rng && rng, Fun fun) const
                 {
                     ranges::action::erase(rng, begin(rng), find_if_not(begin(rng), end(rng),
                         std::move(fun)));
-                    return std::forward<Rng>(rng);
+                    return static_cast<Rng&&>(rng);
                 }
 
             #ifndef RANGES_DOXYGEN_INVOKED
@@ -77,11 +77,11 @@ namespace ranges
                     CONCEPT_ASSERT_MSG(ForwardRange<Rng>(),
                         "The object on which action::drop_while operates must be a model of the "
                         "ForwardRange concept.");
-                    CONCEPT_ASSERT_MSG(IndirectCallablePredicate<Fun, range_iterator_t<Rng>>(),
+                    CONCEPT_ASSERT_MSG(IndirectPredicate<Fun, iterator_t<Rng>>(),
                         "The function passed to action::drop_while must be callable with objects "
                         "of the range's common reference type, and it must return something convertible to "
                         "bool.");
-                    using I = range_iterator_t<Rng>;
+                    using I = iterator_t<Rng>;
                     CONCEPT_ASSERT_MSG(ErasableRange<Rng, I, I>(),
                         "The object on which action::drop_while operates must allow element "
                         "removal.");
@@ -92,10 +92,7 @@ namespace ranges
             /// \ingroup group-actions
             /// \relates drop_while_fn
             /// \sa action
-            namespace
-            {
-                constexpr auto&& drop_while = static_const<action<drop_while_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(action<drop_while_fn>, drop_while)
         }
         /// @}
     }

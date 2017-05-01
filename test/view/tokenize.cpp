@@ -1,5 +1,6 @@
 #include <range/v3/core.hpp>
 #include <range/v3/view/tokenize.hpp>
+#include <range/v3/utility/copy.hpp>
 #include "../simple_test.hpp"
 #include "../test_utils.hpp"
 
@@ -8,7 +9,7 @@ int main()
     using namespace ranges;
 
     // GCC 4.8 doesn't do regex
-#if __GNUC__ != 4 || __GNUC_MINOR__ > 8
+#if !defined(__GNUC__) || defined(__clang__) || __GNUC__ > 4 || __GNUC_MINOR__ > 8
     std::string txt{"abc\ndef\tghi"};
     const std::regex rx{R"delim(([\w]+))delim"};
     auto&& rng = txt | view::tokenize(rx,1);
@@ -32,8 +33,8 @@ int main()
     ::models_not<concepts::SizedRange>(crng);
     ::models_not<concepts::OutputRange>(crng);
 
-    // ::models<concepts::View>(rng);
-    // ::models<concepts::View>(crng);
+    // ::models<concepts::View>(aux::copy(rng));
+    // ::models<concepts::View>(aux::copy(crng));
 #endif
 
     return test_result();

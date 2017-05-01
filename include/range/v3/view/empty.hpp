@@ -14,6 +14,7 @@
 #ifndef RANGES_V3_VIEW_EMPTY_HPP
 #define RANGES_V3_VIEW_EMPTY_HPP
 
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/view_facade.hpp>
 
@@ -29,11 +30,11 @@ namespace ranges
             friend range_access;
             struct cursor
             {
-                [[noreturn]] T const & get() const
+                [[noreturn]] T const & read() const
                 {
                     RANGES_ENSURE(false);
                 }
-                constexpr bool done() const
+                constexpr bool equal(default_sentinel) const
                 {
                     return true;
                 }
@@ -51,7 +52,7 @@ namespace ranges
                 }
                 void advance(std::ptrdiff_t n)
                 {
-                    RANGES_ASSERT(n == 0);
+                    RANGES_EXPECT(n == 0);
                 }
                 std::ptrdiff_t distance_to(cursor const &) const
                 {
@@ -72,6 +73,10 @@ namespace ranges
             {
                 return 0u;
             }
+            constexpr T const *data() const
+            {
+                return nullptr;
+            }
         };
 
         namespace view
@@ -84,5 +89,7 @@ namespace ranges
         }
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::empty_view)
 
 #endif

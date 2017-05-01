@@ -38,26 +38,25 @@ namespace ranges
             /// \pre `Rng` is a model of the `Range` concept
             /// \pre `I` is a model of the `InputIterator` concept
             /// \pre `S` is a model of the `Sentinel<I>` concept
-            /// \pre `P` is a model of the `Callable<iterator_common_reference_t<I>>` concept
+            /// \pre `P` is a model of the `Invocable<iter_common_reference_t<I>>` concept
             /// \pre The ResultType of `P` is EqualityComparable with V
             template<typename I, typename S, typename V, typename P = ident,
-                CONCEPT_REQUIRES_(InputIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallableRelation<equal_to, Projected<I, P>, V const *>())>
-            I operator()(I begin, S end, V const &val, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(InputIterator<I>() && Sentinel<S, I>() &&
+                    IndirectRelation<equal_to, projected<I, P>, V const *>())>
+            I operator()(I begin, S end, V const &val, P proj = P{}) const
             {
-                auto &&proj = as_function(proj_);
                 for(; begin != end; ++begin)
-                    if(proj(*begin) == val)
+                    if(invoke(proj, *begin) == val)
                         break;
                 return begin;
             }
 
             /// \overload
             template<typename Rng, typename V, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(InputRange<Rng>() &&
-                    IndirectCallableRelation<equal_to, Projected<I, P>, V const *>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, V const &val, P proj = P{}) const
+                    IndirectRelation<equal_to, projected<I, P>, V const *>())>
+            safe_iterator_t<Rng> operator()(Rng &&rng, V const &val, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), val, std::move(proj));
             }
@@ -65,11 +64,7 @@ namespace ranges
 
         /// \sa `find_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& find = static_const<with_braced_init_args<find_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<find_fn>, find)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -41,7 +41,7 @@ namespace ranges
         using Partitionable = meta::strict_and<
             ForwardIterator<I>,
             Permutable<I>,
-            IndirectCallablePredicate<C, Projected<I, P>>>;
+            IndirectPredicate<C, projected<I, P>>>;
 
         /// \addtogroup group-algorithms
         /// @{
@@ -49,21 +49,19 @@ namespace ranges
         {
         private:
             template<typename I, typename S, typename C, typename P>
-            static I impl(I begin, S end, C pred_, P proj_, concepts::ForwardIterator*)
+            static I impl(I begin, S end, C pred, P proj, concepts::ForwardIterator*)
             {
-                auto && pred = as_function(pred_);
-                auto && proj = as_function(proj_);
                 while(true)
                 {
                     if(begin == end)
                         return begin;
-                    if(!pred(proj(*begin)))
+                    if(!invoke(pred, invoke(proj, *begin)))
                         break;
                     ++begin;
                 }
                 for(I p = begin; ++p != end;)
                 {
-                    if(pred(proj(*p)))
+                    if(invoke(pred, invoke(proj, *p)))
                     {
                         ranges::iter_swap(begin, p);
                         ++begin;
@@ -73,10 +71,8 @@ namespace ranges
             }
 
             template<typename I, typename S, typename C, typename P>
-            static I impl(I begin, S end_, C pred_, P proj_, concepts::BidirectionalIterator*)
+            static I impl(I begin, S end_, C pred, P proj, concepts::BidirectionalIterator*)
             {
-                auto && pred = as_function(pred_);
-                auto && proj = as_function(proj_);
                 I end = ranges::next(begin, end_);
                 while(true)
                 {
@@ -84,7 +80,7 @@ namespace ranges
                     {
                         if(begin == end)
                             return begin;
-                        if(!pred(proj(*begin)))
+                        if(!invoke(pred, invoke(proj, *begin)))
                             break;
                         ++begin;
                     }
@@ -92,14 +88,14 @@ namespace ranges
                     {
                         if(begin == --end)
                             return begin;
-                    } while(!pred(proj(*end)));
+                    } while(!invoke(pred, invoke(proj, *end)));
                     ranges::iter_swap(begin, end);
                     ++begin;
                 }
             }
         public:
             template<typename I, typename S, typename C, typename P = ident,
-                CONCEPT_REQUIRES_(Partitionable<I, C, P>() && IteratorRange<I, S>())>
+                CONCEPT_REQUIRES_(Partitionable<I, C, P>() && Sentinel<S, I>())>
             I operator()(I begin, S end, C pred, P proj = P{}) const
             {
                 return partition_fn::impl(std::move(begin), std::move(end), std::move(pred),
@@ -107,9 +103,9 @@ namespace ranges
             }
 
             template<typename Rng, typename C, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Partitionable<I, C, P>() && Range<Rng>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred, P proj = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred, P proj = P{}) const
             {
                 return partition_fn::impl(begin(rng), end(rng), std::move(pred),
                     std::move(proj), iterator_concept<I>());
@@ -118,11 +114,7 @@ namespace ranges
 
         /// \sa `partition_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& partition = static_const<with_braced_init_args<partition_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<partition_fn>, partition)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -17,11 +17,12 @@
 #include <utility>
 #include <functional>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_traits.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_interface.hpp>
-#include <range/v3/utility/optional.hpp>
+#include <range/v3/detail/optional.hpp>
 #include <range/v3/utility/functional.hpp>
 #include <range/v3/utility/semiregular.hpp>
 #include <range/v3/utility/static_const.hpp>
@@ -38,15 +39,14 @@ namespace ranges
         template<typename Rng, typename Pred>
         struct drop_while_view
           : view_interface<drop_while_view<Rng, Pred>, is_finite<Rng>::value ? finite : unknown>
-       {
+        {
         private:
             friend range_access;
-            using difference_type_ = range_difference_t<Rng>;
             Rng rng_;
-            semiregular_t<function_type<Pred>> pred_;
-            optional<range_iterator_t<Rng>> begin_;
+            semiregular_t<Pred> pred_;
+            detail::non_propagating_cache<iterator_t<Rng>> begin_;
 
-            range_iterator_t<Rng> get_begin_()
+            iterator_t<Rng> get_begin_()
             {
                 if(!begin_)
                     begin_ = find_if_not(rng_, std::ref(pred_));
@@ -54,34 +54,14 @@ namespace ranges
             }
         public:
             drop_while_view() = default;
-            drop_while_view(drop_while_view &&that)
-              : rng_(std::move(that).rng_), pred_(std::move(that).pred_), begin_{}
-            {}
-            drop_while_view(drop_while_view const &that)
-              : rng_(that.rng_), pred_(that.pred_), begin_{}
-            {}
             drop_while_view(Rng rng, Pred pred)
-              : rng_(std::move(rng)), pred_(as_function(std::move(pred))), begin_{}
+              : rng_(std::move(rng)), pred_(std::move(pred))
             {}
-            drop_while_view& operator=(drop_while_view &&that)
-            {
-                rng_ = std::move(that).rng_;
-                pred_ = std::move(that).pred_;
-                begin_.reset();
-                return *this;
-            }
-            drop_while_view& operator=(drop_while_view const &that)
-            {
-                rng_ = that.rng_;
-                pred_ = that.pred_;
-                begin_.reset();
-                return *this;
-            }
-            range_iterator_t<Rng> begin()
+            iterator_t<Rng> begin()
             {
                 return get_begin_();
             }
-            range_sentinel_t<Rng> end()
+            sentinel_t<Rng> end()
             {
                 return ranges::end(rng_);
             }
@@ -111,14 +91,14 @@ namespace ranges
                 template<typename Rng, typename Pred>
                 using Concept = meta::and_<
                     InputRange<Rng>,
-                    IndirectCallablePredicate<Pred, range_iterator_t<Rng>>>;
+                    IndirectPredicate<Pred, iterator_t<Rng>>>;
 
                 template<typename Rng, typename Pred,
                     CONCEPT_REQUIRES_(Concept<Rng, Pred>())>
                 drop_while_view<all_t<Rng>, Pred>
                 operator()(Rng && rng, Pred pred) const
                 {
-                    return {all(std::forward<Rng>(rng)), std::move(pred)};
+                    return {all(static_cast<Rng&&>(rng)), std::move(pred)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng, typename Pred,
@@ -128,7 +108,7 @@ namespace ranges
                     CONCEPT_ASSERT_MSG(InputRange<Rng>(),
                         "The first argument to view::drop_while must be a model of the "
                         "InputRange concept");
-                    CONCEPT_ASSERT_MSG(IndirectCallablePredicate<Pred, range_iterator_t<Rng>>(),
+                    CONCEPT_ASSERT_MSG(IndirectPredicate<Pred, iterator_t<Rng>>(),
                         "The second argument to view::drop_while must be callable with "
                         "an argument of the range's common reference type, and its return value "
                         "must be convertible to bool");
@@ -138,13 +118,12 @@ namespace ranges
 
             /// \relates drop_while_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& drop_while = static_const<view<drop_while_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<drop_while_fn>, drop_while)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::drop_while_view)
 
 #endif

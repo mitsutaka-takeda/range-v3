@@ -35,18 +35,16 @@ namespace ranges
         struct copy_if_fn
         {
             template<typename I, typename S, typename O, typename F, typename P = ident,
-                CONCEPT_REQUIRES_(InputIterator<I>() && IteratorRange<I, S>() &&
-                    WeaklyIncrementable<O>() && IndirectCallablePredicate<F, Projected<I, P> >() &&
+                CONCEPT_REQUIRES_(InputIterator<I>() && Sentinel<S, I>() &&
+                    WeaklyIncrementable<O>() && IndirectPredicate<F, projected<I, P> >() &&
                     IndirectlyCopyable<I, O>())>
             tagged_pair<tag::in(I), tag::out(O)>
-            operator()(I begin, S end, O out, F pred_, P proj_ = P{}) const
+            operator()(I begin, S end, O out, F pred, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 for(; begin != end; ++begin)
                 {
                     auto &&x = *begin;
-                    if(pred(proj(x)))
+                    if(invoke(pred, invoke(proj, x)))
                     {
                         *out = (decltype(x) &&) x;
                         ++out;
@@ -56,10 +54,10 @@ namespace ranges
             }
 
             template<typename Rng, typename O, typename F, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(InputRange<Rng>() && WeaklyIncrementable<O>() &&
-                    IndirectCallablePredicate<F, Projected<I, P> >() && IndirectlyCopyable<I, O>())>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)>
+                    IndirectPredicate<F, projected<I, P> >() && IndirectlyCopyable<I, O>())>
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)>
             operator()(Rng &&rng, O out, F pred, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(out), std::move(pred), std::move(proj));
@@ -68,11 +66,7 @@ namespace ranges
 
         /// \sa `copy_if_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& copy_if = static_const<with_braced_init_args<copy_if_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<copy_if_fn>, copy_if)
         /// @}
     } // namespace v3
 } // namespace ranges

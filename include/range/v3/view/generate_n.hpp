@@ -14,18 +14,18 @@
 #ifndef RANGES_V3_VIEW_GENERATE_N_HPP
 #define RANGES_V3_VIEW_GENERATE_N_HPP
 
-#include <utility>
 #include <type_traits>
+#include <utility>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
-#include <range/v3/size.hpp>
-#include <range/v3/begin_end.hpp>
 #include <range/v3/range_traits.hpp>
+#include <range/v3/size.hpp>
 #include <range/v3/view_facade.hpp>
 #include <range/v3/utility/functional.hpp>
 #include <range/v3/utility/semiregular.hpp>
 #include <range/v3/utility/static_const.hpp>
-#include <range/v3/utility/semiregular.hpp>
+#include <range/v3/view/generate.hpp>
 
 namespace ranges
 {
@@ -38,8 +38,8 @@ namespace ranges
           : view_facade<generate_n_view<G>, finite>
         {
         private:
-            friend struct range_access;
-            using result_t = concepts::Function::result_t<G>;
+            friend struct ranges::range_access;
+            using result_t = result_of_t<G&()>;
             semiregular_t<G> gen_;
             semiregular_t<result_t> val_;
             std::size_t n_;
@@ -47,35 +47,34 @@ namespace ranges
             {
             private:
                 generate_n_view *rng_;
-                std::size_t n_;
             public:
                 using single_pass = std::true_type;
                 cursor() = default;
-                cursor(generate_n_view &rng, std::size_t n)
-                  : rng_(&rng), n_(n)
+                cursor(generate_n_view &rng)
+                  : rng_(&rng)
                 {}
-                bool done() const
+                bool equal(default_sentinel) const
                 {
-                    return 0 == n_;
+                    return 0 == rng_->n_;
                 }
-                result_t get() const
+                result_t read() const
                 {
                     return rng_->val_;
                 }
                 void next()
                 {
-                    RANGES_ASSERT(0 != n_);
-                    if(0 != --n_)
+                    RANGES_EXPECT(0 != rng_->n_);
+                    if(0 != --rng_->n_)
                         rng_->next();
                 }
             };
             void next()
             {
-                val_ = gen_();
+                val_ = invoke(gen_);
             }
             cursor begin_cursor()
             {
-                return {*this, n_};
+                return {*this};
             }
         public:
             generate_n_view() = default;
@@ -99,40 +98,30 @@ namespace ranges
         {
             struct generate_n_fn
             {
-                template<typename G>
-                using Concept = meta::and_<
-                    Function<G>,
-                    meta::not_<Same<void, concepts::Function::result_t<G>>>>;
-
                 template<typename G,
-                    CONCEPT_REQUIRES_(Concept<G>())>
+                    CONCEPT_REQUIRES_(generate_fn::Concept<G>())>
                 generate_n_view<G> operator()(G g, std::size_t n) const
                 {
                     return generate_n_view<G>{std::move(g), n};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename G,
-                    CONCEPT_REQUIRES_(!Concept<G>())>
+                    CONCEPT_REQUIRES_(!generate_fn::Concept<G>())>
                 void operator()(G, std::size_t) const
                 {
-                    CONCEPT_ASSERT_MSG(Function<G>(),
-                        "The argument to view::generate must be a function that is callable with "
-                        "no arguments");
-                    CONCEPT_ASSERT_MSG(meta::not_<Same<void, concepts::Function::result_t<G>>>(),
-                        "The return type of the function G must not be void.");
+                    generate_fn::check<G>();
                 }
             #endif
             };
 
             /// \relates generate_n_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& generate_n = static_const<generate_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(generate_n_fn, generate_n)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::generate_n_view)
 
 #endif

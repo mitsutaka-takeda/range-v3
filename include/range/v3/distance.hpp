@@ -35,12 +35,12 @@ namespace ranges
         struct enumerate_fn : iter_enumerate_fn
         {
         private:
-            template<typename Rng, typename D, typename I = range_iterator_t<Rng>>
+            template<typename Rng, typename D, typename I = iterator_t<Rng>>
             std::pair<D, I> impl_r(Rng &rng, D d, concepts::Range*, concepts::Range*) const
             {
                 return iter_enumerate(begin(rng), end(rng), d);
             }
-            template<typename Rng, typename D, typename I = range_iterator_t<Rng>>
+            template<typename Rng, typename D, typename I = iterator_t<Rng>>
             std::pair<D, I> impl_r(Rng &rng, D d, concepts::BoundedRange*, concepts::SizedRange*) const
             {
                 return {static_cast<D>(size(rng)) + d, end(rng)};
@@ -48,24 +48,23 @@ namespace ranges
         public:
             using iter_enumerate_fn::operator();
 
-            template<typename Rng, typename D = range_difference_t<Rng>,
-                typename I = range_iterator_t<Rng>,
+            template<typename Rng, typename D = range_difference_type_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Integral<D>() && Range<Rng>())>
             std::pair<D, I> operator()(Rng &&rng, D d = 0) const
             {
                 // Better not be trying to compute the distance of an infinite range:
-                RANGES_ASSERT(!is_infinite<Rng>::value);
-                return this->impl_r(rng, d, bounded_range_concept<Rng>(),
+                RANGES_EXPECT(!is_infinite<Rng>::value);
+                auto result = this->impl_r(rng, d, bounded_range_concept<Rng>(),
                     sized_range_concept<Rng>());
+                RANGES_EXPECT(result.first >= d);
+                return result;
             }
         };
 
         /// \ingroup group-core
         /// \sa `enumerate_fn`
-        namespace
-        {
-            constexpr auto&& enumerate = static_const<enumerate_fn>::value;
-        }
+        RANGES_INLINE_VARIABLE(enumerate_fn, enumerate)
 
         struct distance_fn : iter_distance_fn
         {
@@ -76,6 +75,7 @@ namespace ranges
                 return enumerate(rng, d).first;
             }
             template<typename Rng, typename D>
+            RANGES_CXX14_CONSTEXPR
             D impl_r(Rng &rng, D d, concepts::SizedRange*) const
             {
                 return static_cast<D>(size(rng)) + d;
@@ -83,22 +83,22 @@ namespace ranges
         public:
             using iter_distance_fn::operator();
 
-            template<typename Rng, typename D = range_difference_t<Rng>,
+            template<typename Rng, typename D = range_difference_type_t<Rng>,
                 CONCEPT_REQUIRES_(Integral<D>() && Range<Rng>())>
+            RANGES_CXX14_CONSTEXPR
             D operator()(Rng &&rng, D d = 0) const
             {
                 // Better not be trying to compute the distance of an infinite range:
-                RANGES_ASSERT(!is_infinite<Rng>::value);
-                return this->impl_r(rng, d, sized_range_concept<Rng>());
+                RANGES_EXPECT(!is_infinite<Rng>::value);
+                auto result = this->impl_r(rng, d, sized_range_concept<Rng>());
+                RANGES_EXPECT(result >= d);
+                return result;
             }
         };
 
         /// \ingroup group-core
         /// \sa `distance_fn`
-        namespace
-        {
-            constexpr auto&& distance = static_const<distance_fn>::value;
-        }
+        RANGES_INLINE_VARIABLE(distance_fn, distance)
 
         // The interface of distance_compare is taken from Util.listLengthCmp in the GHC API.
         struct distance_compare_fn : iter_distance_compare_fn
@@ -106,24 +106,24 @@ namespace ranges
         private:
             template<typename Rng,
                 CONCEPT_REQUIRES_(!is_infinite<Rng>())>
-            int impl_r(Rng &rng, range_difference_t<Rng> n, concepts::Range*) const
+            int impl_r(Rng &rng, range_difference_type_t<Rng> n, concepts::Range*) const
             {
                 return iter_distance_compare(begin(rng), end(rng), n);
             }
             template<typename Rng,
                 CONCEPT_REQUIRES_(is_infinite<Rng>())>
-            int impl_r(Rng &rng, range_difference_t<Rng> n, concepts::Range*) const
+            int impl_r(Rng &, range_difference_type_t<Rng>, concepts::Range*) const
             {
                 // Infinite ranges are always compared to be larger than a finite number.
                 return 1;
             }
             template<typename Rng>
-            int impl_r(Rng &rng, range_difference_t<Rng> n, concepts::SizedRange*) const
+            int impl_r(Rng &rng, range_difference_type_t<Rng> n, concepts::SizedRange*) const
             {
                 auto dist = distance(rng); // O(1) since rng is a SizedRange
-                if (dist > n)
+                if(dist > n)
                     return  1;
-                else if (dist < n)
+                else if(dist < n)
                     return -1;
                 else
                     return  0;
@@ -133,7 +133,7 @@ namespace ranges
 
             template<typename Rng,
                 CONCEPT_REQUIRES_(Range<Rng>())>
-            int operator()(Rng &&rng, range_difference_t<Rng> n) const
+            int operator()(Rng &&rng, range_difference_type_t<Rng> n) const
             {
                 return this->impl_r(rng, n, sized_range_concept<Rng>());
             }
@@ -141,11 +141,7 @@ namespace ranges
 
         /// \ingroup group-core
         /// \sa `distance_compare_fn`
-        namespace
-        {
-            constexpr auto&& distance_compare = static_const<distance_compare_fn>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(distance_compare_fn, distance_compare)
         /// @}
     }
 }

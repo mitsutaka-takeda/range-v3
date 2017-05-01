@@ -36,28 +36,26 @@ namespace ranges
             /// \pre `Rng` is a model of the `Range` concept
             /// \pre `C` is a model of the `BinaryPredicate` concept
             template<typename I, typename S, typename C = equal_to, typename P = ident,
-                CONCEPT_REQUIRES_(ForwardIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallableRelation<C, Projected<I, P>>())>
+                CONCEPT_REQUIRES_(ForwardIterator<I>() && Sentinel<S, I>() &&
+                    IndirectRelation<C, projected<I, P>>())>
             I
-            operator()(I begin, S end, C pred_ = C{}, P proj_ = P{}) const
+            operator()(I begin, S end, C pred = C{}, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 if(begin == end)
                     return begin;
                 auto next = begin;
                 for(; ++next != end; begin = next)
-                    if(pred(proj(*begin), proj(*next)))
+                    if(invoke(pred, invoke(proj, *begin), invoke(proj, *next)))
                         return begin;
                 return next;
             }
 
             /// \overload
             template<typename Rng, typename C = equal_to, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(ForwardRange<Rng>() &&
-                    IndirectCallableRelation<C, Projected<I, P>>())>
-            range_safe_iterator_t<Rng>
+                    IndirectRelation<C, projected<I, P>>())>
+            safe_iterator_t<Rng>
             operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(pred), std::move(proj));
@@ -66,11 +64,8 @@ namespace ranges
 
         /// \sa `adjacent_find_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& adjacent_find = static_const<with_braced_init_args<adjacent_find_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<adjacent_find_fn>,
+                               adjacent_find)
         /// @}
 
     } // namespace v3

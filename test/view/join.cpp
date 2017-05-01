@@ -9,12 +9,6 @@
 //
 // Project home: https://github.com/ericniebler/range-v3
 
-// Work around strange glibc bug(?)
-#include <iosfwd>
-#if defined(RANGES_CXX_GREATER_THAN_11) && defined(__GLIBCXX__)
-int gets;
-#endif
-
 #include <vector>
 #include <iterator>
 #include <functional>
@@ -29,33 +23,49 @@ int gets;
 #include "../test_utils.hpp"
 #include "../test_iterators.hpp"
 
-static int N = 0;
-auto const make_input_rng = []
-{
-    using ranges::view::generate_n;
-    return generate_n([](){
-        return generate_n([](){
-            return N++;
-        },3);
-    },3);
-};
+RANGES_DIAGNOSTIC_IGNORE_GLOBAL_CONSTRUCTORS
 
-template<typename T>
-auto twice(T t) -> decltype(ranges::view::concat(ranges::view::single(t), ranges::view::single(t)))
+namespace
 {
-    return ranges::view::concat(ranges::view::single(t), ranges::view::single(t));
-}
-
-// https://github.com/ericniebler/range-v3/issues/283
-void test_issue_283()
-{
-    const std::vector<std::vector<int>> nums =
+    template<typename T, std::size_t N>
+    struct input_array
     {
-        { 1, 2, 3 },
-        { 4, 5, 6 }
+        T elements_[N];
+
+        input_iterator<T*> begin() { return input_iterator<T*>{elements_ + 0}; }
+        input_iterator<T*> end() { return input_iterator<T*>{elements_ + N}; }
+        constexpr std::size_t size() const { return N; }
     };
-    const std::vector<int> flat_nums = ranges::view::join( nums );
-    ::check_equal(flat_nums, {1,2,3,4,5,6});
+
+    static int N = 0;
+    auto const make_input_rng = []
+    {
+        using ranges::view::generate_n;
+        return generate_n([](){
+            return generate_n([](){
+                return N++;
+            },3);
+        },3);
+    };
+
+    template<typename T>
+    constexpr auto twice(T t)
+    RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+    (
+        ranges::view::concat(ranges::view::single(t), ranges::view::single(t))
+    )
+
+    // https://github.com/ericniebler/range-v3/issues/283
+    void test_issue_283()
+    {
+        const std::vector<std::vector<int>> nums =
+        {
+            { 1, 2, 3 },
+            { 4, 5, 6 }
+        };
+        const std::vector<int> flat_nums = ranges::view::join( nums );
+        ::check_equal(flat_nums, {1,2,3,4,5,6});
+    }
 }
 
 int main()
@@ -102,20 +112,19 @@ int main()
     auto rng3 = view::join(vs);
     static_assert(range_cardinality<decltype(rng3)>::value == ranges::finite, "");
     models_not<concepts::SizedRange>(rng3);
-    models_not<concepts::SizedIteratorRange>(begin(rng3), end(rng3));
+    CONCEPT_ASSERT(!SizedSentinel<decltype(end(rng3)), decltype(begin(rng3))>());
     CHECK(to_<std::string>(rng3) == "Thisishisface");
 
     auto rng4 = view::join(vs, ' ');
     static_assert(range_cardinality<decltype(rng3)>::value == ranges::finite, "");
     models_not<concepts::SizedRange>(rng4);
-    models_not<concepts::SizedIteratorRange>(begin(rng4), end(rng4));
+    CONCEPT_ASSERT(!SizedSentinel<decltype(end(rng4)), decltype(begin(rng4))>());
     CHECK(to_<std::string>(rng4) == "This is his face");
 
     auto rng5 = view::join(twice(twice(42)));
     static_assert(range_cardinality<decltype(rng5)>::value == 4, "");
     models<concepts::SizedRange>(rng5);
     CHECK(rng5.size() == 4u);
-    static_assert(rng5.size() == 4u, "");
     check_equal(rng5, {42,42,42,42});
 
     auto rng6 = view::join(twice(view::repeat_n(42, 2)));
@@ -125,6 +134,13 @@ int main()
     check_equal(rng6, {42,42,42,42});
 
     test_issue_283();
+
+    {
+        input_array<std::string, 4> some_strings = {{"This","is","his","face"}};
+        models<concepts::InputRange>(some_strings);
+        models<concepts::SizedRange>(some_strings);
+        models_not<concepts::SizedRange>(some_strings | view::join);
+    }
 
     return ::test_result();
 }

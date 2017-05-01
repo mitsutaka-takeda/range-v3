@@ -2,6 +2,7 @@
 // Range v3 library
 //
 //  Copyright Eric Niebler 2014
+//  Copyright Casey Carter 2016
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -66,66 +67,75 @@ namespace ranges
             struct Cursor
             {
                 template<typename T>
-                auto requires_(T&& t) -> decltype(
+                auto requires_() -> decltype(
                     concepts::valid_expr(
                         concepts::model_of<concepts::SemiRegular, T>(),
                         concepts::model_of<concepts::SemiRegular, mixin_base_t<T>>(),
-                        concepts::model_of<concepts::Constructible, mixin_base_t<T>, T &&>(),
-                        concepts::model_of<concepts::Constructible, mixin_base_t<T>, T const &>(),
+                        concepts::model_of<concepts::Constructible, mixin_base_t<T>, T>(),
+                        concepts::model_of<concepts::Constructible, mixin_base_t<T>, T const &>()
+                    ));
+            };
+            struct HasCursorNext
+            {
+                template<typename T>
+                auto requires_(T &t) -> decltype(
+                    concepts::valid_expr(
                         (t.next(), concepts::void_)
                     ));
             };
-            struct HasEqualCursor
+            struct CursorSentinel
+              : concepts::refines<concepts::SemiRegular(concepts::_1), Cursor(concepts::_2)>
             {
-                template<typename T>
-                auto requires_(T&& t) -> decltype(
+                template<typename S, typename C>
+                auto requires_(S &s, C &c) -> decltype(
                     concepts::valid_expr(
-                        concepts::convertible_to<bool>(t.equal(t))
+                        concepts::convertible_to<bool>(c.equal(s))
                     ));
             };
             struct ReadableCursor
             {
                 template<typename T>
-                auto requires_(T&& t) -> decltype(
+                auto requires_(T &t) -> decltype(
                     concepts::valid_expr(
-                        t.get()
+                        t.read()
+                    ));
+            };
+            struct HasCursorArrow
+            {
+                template<typename C>
+                auto requires_(C const &c) -> decltype(
+                    concepts::valid_expr(
+                        c.arrow()
                     ));
             };
             struct WritableCursor
             {
                 template<typename T, typename U>
-                auto requires_(T&& t, U&& u) -> decltype(
+                auto requires_(T &t, U &&u) -> decltype(
                     concepts::valid_expr(
-                        (t.set((U &&) u), 42)
+                        (t.write((U &&) u), 42)
                     ));
             };
-            struct SizedCursor
+            struct SizedCursorSentinel
+              : concepts::refines<CursorSentinel>
             {
-                template<typename T>
-                auto requires_(T&& t) -> decltype(
+                template<typename S, typename C>
+                auto requires_(S &s, C &c) -> decltype(
                     concepts::valid_expr(
-                        concepts::model_of<concepts::SignedIntegral>(t.distance_to(t))
-                    ));
-            };
-            struct SizedCursorRange
-            {
-                template<typename C, typename S>
-                auto requires_(C&& c, S&& s) -> decltype(
-                    concepts::valid_expr(
-                        concepts::model_of<concepts::SignedIntegral>(s.distance_from(c))
+                        concepts::model_of<concepts::SignedIntegral>(c.distance_to(s))
                     ));
             };
             struct OutputCursor
               : concepts::refines<WritableCursor, Cursor(concepts::_1)>
             {};
             struct InputCursor
-              : concepts::refines<ReadableCursor, Cursor>
+              : concepts::refines<ReadableCursor, Cursor, HasCursorNext>
             {};
             struct ForwardCursor
-              : concepts::refines<InputCursor, HasEqualCursor>
+              : concepts::refines<InputCursor, CursorSentinel(concepts::_1, concepts::_1)>
             {
                 template<typename T>
-                auto requires_(T&& t) -> decltype(
+                auto requires_() -> decltype(
                     concepts::valid_expr(
                         concepts::is_false(single_pass_t<uncvref_t<T>>())
                     ));
@@ -134,16 +144,16 @@ namespace ranges
               : concepts::refines<ForwardCursor>
             {
                 template<typename T>
-                auto requires_(T&& t) -> decltype(
+                auto requires_(T &t) -> decltype(
                     concepts::valid_expr(
                         (t.prev(), concepts::void_)
                     ));
             };
             struct RandomAccessCursor
-              : concepts::refines<BidirectionalCursor, SizedCursor>
+              : concepts::refines<BidirectionalCursor, SizedCursorSentinel(concepts::_1, concepts::_1)>
             {
                 template<typename T>
-                auto requires_(T&& t) -> decltype(
+                auto requires_(T &t) -> decltype(
                     concepts::valid_expr(
                         (t.advance(t.distance_to(t)), concepts::void_)
                     ));
@@ -151,7 +161,7 @@ namespace ranges
             struct InfiniteCursor
             {
                 template<typename T>
-                auto requires_(T&&) -> decltype(
+                auto requires_() -> decltype(
                     concepts::valid_expr(
                         concepts::is_true(typename T::is_infinite{})
                     ));
@@ -208,10 +218,16 @@ namespace ranges
             )
 
             template<typename Cur>
-            static RANGES_CXX14_CONSTEXPR auto get(Cur const &pos)
+            static RANGES_CXX14_CONSTEXPR auto read(Cur const &pos)
             RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
-                pos.get()
+                pos.read()
+            )
+            template<typename Cur>
+            static RANGES_CXX14_CONSTEXPR auto arrow(Cur const &pos)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+            (
+                pos.arrow()
             )
             template<typename Cur>
             static RANGES_CXX14_CONSTEXPR auto move(Cur const &pos)
@@ -220,10 +236,10 @@ namespace ranges
                 pos.move()
             )
             template<typename Cur, typename T>
-            static RANGES_CXX14_CONSTEXPR auto set(Cur &pos, T &&t)
+            static RANGES_CXX14_CONSTEXPR auto write(Cur &pos, T && t)
             RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
-                pos.set((T &&) t)
+                pos.write((T &&) t)
             )
             template<typename Cur>
             static RANGES_CXX14_CONSTEXPR auto next(Cur & pos)
@@ -231,23 +247,11 @@ namespace ranges
             (
                 pos.next()
             )
-            template<typename Cur>
-            static constexpr auto done(Cur const & pos)
+            template<typename Cur, typename O>
+            static RANGES_CXX14_CONSTEXPR auto equal(Cur const &pos, O const &other)
             RANGES_DECLTYPE_AUTO_RETURN
             (
-                pos.done()
-            )
-            template<typename Cur>
-            static RANGES_CXX14_CONSTEXPR auto equal(Cur const &pos0, Cur const &pos1)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                pos0.equal(pos1)
-            )
-            template<typename Cur, typename S>
-            static constexpr auto empty(Cur const &pos, S const &end)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                end.equal(pos)
+                pos.equal(other)
             )
             template<typename Cur>
             static RANGES_CXX14_CONSTEXPR auto prev(Cur & pos)
@@ -261,26 +265,11 @@ namespace ranges
             (
                 pos.advance(n)
             )
-            template<typename Cur>
-            static RANGES_CXX14_CONSTEXPR auto distance_to(
-                Cur const &pos0, Cur const &pos1)
+            template<typename Cur, typename O>
+            static RANGES_CXX14_CONSTEXPR auto distance_to(Cur const &pos, O const &other)
             RANGES_DECLTYPE_AUTO_RETURN
             (
-                pos0.distance_to(pos1)
-            )
-            template<typename Cur, typename S>
-            static RANGES_CXX14_CONSTEXPR auto distance_to(
-                Cur const &pos, S const &end)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                end.distance_from(pos)
-            )
-            template<typename Cur>
-            static RANGES_CXX14_CONSTEXPR auto distance_remaining(
-                Cur const &pos)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                pos.distance_remaining()
+                pos.distance_to(other)
             )
 
         private:
@@ -302,7 +291,7 @@ namespace ranges
             };
 
             template<typename T>
-            using cursor_reference_t = decltype(std::declval<T const &>().get());
+            using cursor_reference_t = decltype(std::declval<T const &>().read());
 
             template<typename T>
             static meta::id<uncvref_t<cursor_reference_t<T>>> cursor_value_2_(long);
@@ -321,15 +310,26 @@ namespace ranges
             template<typename Cur>
             using cursor_value_t = typename cursor_value<Cur>::type;
 
-            template<typename Cur, typename S>
-            static RANGES_CXX14_CONSTEXPR Cur cursor(basic_iterator<Cur, S> it)
+            template<typename Cur>
+            static RANGES_CXX14_CONSTEXPR Cur &pos(basic_iterator<Cur> &it) noexcept
+            {
+                return it.pos();
+            }
+            template<typename Cur>
+            static constexpr Cur const &pos(basic_iterator<Cur> const &it) noexcept
+            {
+                return it.pos();
+            }
+            template<typename Cur>
+            static RANGES_CXX14_CONSTEXPR Cur &&pos(basic_iterator<Cur> &&it) noexcept
+            {
+                return detail::move(it.pos());
+            }
+
+            template<typename Cur>
+            static RANGES_CXX14_CONSTEXPR Cur cursor(basic_iterator<Cur> it)
             {
                 return std::move(it.pos());
-            }
-            template<typename S>
-            static RANGES_CXX14_CONSTEXPR S sentinel(basic_sentinel<S> s)
-            {
-                return std::move(s.end());
             }
 
         private:
@@ -337,8 +337,6 @@ namespace ranges
             static meta::id<typename RangeAdaptor::base_range_t> base_range_2_();
             template<typename RangeFacade>
             static meta::id<typename RangeFacade::view_facade_t> view_facade_2_();
-            template<typename RangeAdaptor>
-            static meta::id<typename RangeAdaptor::view_adaptor_t> view_adaptor_2_();
         public:
             template<typename RangeAdaptor>
             struct base_range
@@ -352,10 +350,6 @@ namespace ranges
             struct view_facade
               : decltype(range_access::view_facade_2_<RangeFacade>())
             {};
-            template<typename RangeAdaptor>
-            struct view_adaptor
-              : decltype(range_access::view_adaptor_2_<RangeAdaptor>())
-            {};
             /// endcond
         };
         /// @}
@@ -367,9 +361,9 @@ namespace ranges
             using Cursor =
                 concepts::models<range_access::Cursor, T>;
 
-            template<typename T>
-            using HasEqualCursor =
-                concepts::models<range_access::HasEqualCursor, T>;
+            template<typename S, typename C>
+            using CursorSentinel =
+                concepts::models<range_access::CursorSentinel, S, C>;
 
             template<typename T>
             using ReadableCursor =
@@ -380,12 +374,16 @@ namespace ranges
                 concepts::models<range_access::WritableCursor, T, U>;
 
             template<typename T>
-            using SizedCursor =
-                concepts::models<range_access::SizedCursor, T>;
+            using HasCursorNext =
+                concepts::models<range_access::HasCursorNext, T>;
 
-            template<typename T, typename U>
-            using SizedCursorRange =
-              concepts::models<range_access::SizedCursorRange, T, U>;
+            template<typename T>
+            using HasCursorArrow =
+                concepts::models<range_access::HasCursorArrow, T>;
+
+            template<typename S, typename C>
+            using SizedCursorSentinel =
+                concepts::models<range_access::SizedCursorSentinel, S, C>;
 
             template<typename T, typename U>
             using OutputCursor =
@@ -431,7 +429,7 @@ namespace ranges
 
             template<typename Cur>
             struct is_writable_cursor_<Cur, true>
-              : WritableCursor<Cur, range_access::cursor_value_t<Cur> &&>
+              : WritableCursor<Cur, range_access::cursor_value_t<Cur>>
             {};
 
             template<typename Cur>

@@ -42,19 +42,19 @@ namespace ranges
         struct reverse_copy_fn
         {
             template<typename I, typename S, typename O,
-                CONCEPT_REQUIRES_(IteratorRange<I, S>() && ReverseCopyable<I, O>())>
+                CONCEPT_REQUIRES_(Sentinel<S, I>() && ReverseCopyable<I, O>())>
             tagged_pair<tag::in(I), tag::out(O)> operator()(I begin, S end_, O out) const
             {
                 I end = ranges::next(begin, end_), res = end;
-                for (; begin != end; ++out)
+                for(; begin != end; ++out)
                     *out = *--end;
                 return {res, out};
             }
 
             template<typename Rng, typename O,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Range<Rng>() && ReverseCopyable<I, O>())>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)> operator()(Rng &&rng, O out) const
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)> operator()(Rng &&rng, O out) const
             {
                 return (*this)(begin(rng), end(rng), std::move(out));
             }
@@ -62,11 +62,8 @@ namespace ranges
 
         /// \sa `reverse_copy_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& reverse_copy = static_const<with_braced_init_args<reverse_copy_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<reverse_copy_fn>,
+                               reverse_copy)
         /// @}
     } // namespace v3
 } // namespace ranges

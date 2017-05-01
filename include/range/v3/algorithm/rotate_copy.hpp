@@ -35,7 +35,7 @@ namespace ranges
         struct rotate_copy_fn
         {
             template<typename I, typename S, typename O, typename P = ident,
-                CONCEPT_REQUIRES_(ForwardIterator<I>() && IteratorRange<I, S>() && WeaklyIncrementable<O>() &&
+                CONCEPT_REQUIRES_(ForwardIterator<I>() && Sentinel<S, I>() && WeaklyIncrementable<O>() &&
                     IndirectlyCopyable<I, O>())>
             tagged_pair<tag::in(I), tag::out(O)> operator()(I begin, I middle, S end, O out) const
             {
@@ -47,10 +47,10 @@ namespace ranges
             }
 
             template<typename Rng, typename O, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Range<Rng>() && WeaklyIncrementable<O>() &&
                     IndirectlyCopyable<I, O>())>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)>
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)>
             operator()(Rng &&rng, I middle, O out) const
             {
                 return (*this)(begin(rng), std::move(middle), end(rng), std::move(out));
@@ -59,11 +59,7 @@ namespace ranges
 
         /// \sa `rotate_copy_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& rotate_copy = static_const<with_braced_init_args<rotate_copy_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<rotate_copy_fn>, rotate_copy)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -14,6 +14,8 @@
 #ifndef RANGES_V3_VIEW_REPEAT_HPP
 #define RANGES_V3_VIEW_REPEAT_HPP
 
+#include <utility>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_facade.hpp>
@@ -45,17 +47,17 @@ namespace ranges
             struct cursor
             {
             private:
-                Val value_;
+                Val const *value_;
             public:
                 cursor() = default;
-                cursor(Val value)
-                  : value_(value)
+                explicit cursor(Val const &value)
+                  : value_(std::addressof(value))
                 {}
-                Val get() const
+                Val const &read() const
                 {
-                    return value_;
+                    return *value_;
                 }
-                constexpr bool done() const
+                constexpr bool equal(default_sentinel) const
                 {
                     return false;
                 }
@@ -76,7 +78,7 @@ namespace ranges
             };
             cursor begin_cursor() const
             {
-                return {value_};
+                return cursor{value_};
             }
         public:
             repeat_view() = default;
@@ -109,13 +111,12 @@ namespace ranges
 
             /// \relates repeat_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& repeat = static_const<repeat_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(repeat_fn, repeat)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::repeat_view)
 
 #endif

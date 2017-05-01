@@ -15,6 +15,7 @@
 #define RANGES_V3_VIEW_DELIMIT_HPP
 
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_adaptor.hpp>
@@ -46,7 +47,7 @@ namespace ranges
                 sentinel_adaptor(Val value)
                   : value_(std::move(value))
                 {}
-                bool empty(range_iterator_t<Rng> it, range_sentinel_t<Rng> end) const
+                bool empty(iterator_t<Rng> it, sentinel_t<Rng> end) const
                 {
                     return it == end || *it == value_;
                 }
@@ -60,7 +61,7 @@ namespace ranges
         public:
             delimit_view() = default;
             delimit_view(Rng rng, Val value)
-              : view_adaptor_t<delimit_view>{std::move(rng)}
+              : delimit_view::view_adaptor{std::move(rng)}
               , value_(std::move(value))
             {}
         };
@@ -88,7 +89,7 @@ namespace ranges
                 delimit_view<all_t<Rng>, Val>
                 operator()(Rng && rng, Val value) const
                 {
-                    return {all(std::forward<Rng>(rng)), std::move(value)};
+                    return {all(static_cast<Rng&&>(rng)), std::move(value)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng, typename Val,
@@ -120,13 +121,12 @@ namespace ranges
 
             /// \relates delimit_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& delimit = static_const<delimit_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(delimit_fn, delimit)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::delimit_view)
 
 #endif

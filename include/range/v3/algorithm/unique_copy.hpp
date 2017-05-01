@@ -33,7 +33,7 @@ namespace ranges
         template<typename I, typename O, typename C = equal_to, typename P = ident>
         using UniqueCopyable = meta::strict_and<
             InputIterator<I>,
-            IndirectCallableRelation<C, Projected<I, P>>,
+            IndirectRelation<C, projected<I, P>>,
             WeaklyIncrementable<O>,
             IndirectlyCopyable<I, O>,
             meta::strict_or<
@@ -47,22 +47,20 @@ namespace ranges
         {
         private:
             template<typename I, typename S, typename O, typename C, typename P>
-            static tagged_pair<tag::in(I), tag::out(O)> impl(I begin, S end, O out, C pred_, P proj_,
+            static tagged_pair<tag::in(I), tag::out(O)> impl(I begin, S end, O out, C pred, P proj,
                 concepts::InputIterator*, std::false_type)
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 if(begin != end)
                 {
                     // Must save a copy into a local because we will need this value
                     // even after we advance the input iterator.
-                    iterator_value_t<I> value = *begin; // This is guaranteed by IndirectlyCopyable
+                    value_type_t<I> value = *begin; // This is guaranteed by IndirectlyCopyable
                     *out = value;
                     ++out;
                     while(++begin != end)
                     {
                         auto &&x = *begin;
-                        if(!pred(proj(value), proj(x)))
+                        if(!invoke(pred, invoke(proj, value), invoke(proj, x)))
                         {
                             value = (decltype(x) &&) x;
                             *out = value;
@@ -74,11 +72,9 @@ namespace ranges
             }
 
             template<typename I, typename S, typename O, typename C, typename P>
-            static tagged_pair<tag::in(I), tag::out(O)> impl(I begin, S end, O out, C pred_, P proj_,
+            static tagged_pair<tag::in(I), tag::out(O)> impl(I begin, S end, O out, C pred, P proj,
                 concepts::ForwardIterator*, std::false_type)
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 if(begin != end)
                 {
                     I tmp = begin;
@@ -87,7 +83,7 @@ namespace ranges
                     while(++begin != end)
                     {
                         auto &&x = *begin;
-                        if(!pred(proj(*tmp), proj(x)))
+                        if(!invoke(pred, invoke(proj, *tmp), invoke(proj, x)))
                         {
                             *out = (decltype(x) &&) x;
                             ++out;
@@ -99,18 +95,16 @@ namespace ranges
             }
 
             template<typename I, typename S, typename O, typename C, typename P>
-            static tagged_pair<tag::in(I), tag::out(O)> impl(I begin, S end, O out, C pred_, P proj_,
+            static tagged_pair<tag::in(I), tag::out(O)> impl(I begin, S end, O out, C pred, P proj,
                 concepts::InputIterator*, std::true_type)
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 if(begin != end)
                 {
                     *out = *begin;
                     while(++begin != end)
                     {
                         auto &&x = *begin;
-                        if(!pred(proj(*out), proj(x)))
+                        if(!invoke(pred, invoke(proj, *out), invoke(proj, x)))
                             *++out = (decltype(x) &&) x;
                     }
                     ++out;
@@ -125,9 +119,9 @@ namespace ranges
             ///
             /// \pre InputView is a model of the `InputView` concept
             /// \pre `O` is a model of the `WeakOutputIterator` concept
-            /// \pre `C` is a model of the `CallableRelation` concept
+            /// \pre `C` is a model of the `Relation` concept
             template<typename I, typename S, typename O, typename C = equal_to, typename P = ident,
-                CONCEPT_REQUIRES_(UniqueCopyable<I, O, C, P>() && IteratorRange<I, S>())>
+                CONCEPT_REQUIRES_(UniqueCopyable<I, O, C, P>() && Sentinel<S, I>())>
             tagged_pair<tag::in(I), tag::out(O)> operator()(I begin, S end, O out, C pred = C{}, P proj = P{}) const
             {
                 return unique_copy_fn::impl(std::move(begin), std::move(end), std::move(out),
@@ -136,9 +130,9 @@ namespace ranges
 
             /// \overload
             template<typename Rng, typename O, typename C = equal_to, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(UniqueCopyable<I, O, C, P>() && Range<Rng>())>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)>
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)>
             operator()(Rng &&rng, O out, C pred = C{}, P proj = P{}) const
             {
                 return unique_copy_fn::impl(begin(rng), end(rng), std::move(out),
@@ -148,11 +142,7 @@ namespace ranges
 
         /// \sa `unique_copy_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& unique_copy = static_const<with_braced_init_args<unique_copy_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<unique_copy_fn>, unique_copy)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -32,24 +32,22 @@ namespace ranges
         struct count_if_fn
         {
             template<typename I, typename S, typename R, typename P = ident,
-                CONCEPT_REQUIRES_(InputIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallablePredicate<R, Projected<I, P> >())>
-            iterator_difference_t<I>
-            operator()(I begin, S end, R pred_, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(InputIterator<I>() && Sentinel<S, I>() &&
+                    IndirectPredicate<R, projected<I, P> >())>
+            difference_type_t<I>
+            operator()(I begin, S end, R pred, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
-                iterator_difference_t<I> n = 0;
+                difference_type_t<I> n = 0;
                 for(; begin != end; ++begin)
-                    if(pred(proj(*begin)))
+                    if(invoke(pred, invoke(proj, *begin)))
                         ++n;
                 return n;
             }
 
             template<typename Rng, typename R, typename P = ident,
-                typename I = range_iterator_t<Rng>,
-                CONCEPT_REQUIRES_(InputRange<Rng>() && IndirectCallablePredicate<R, Projected<I, P> >())>
-            iterator_difference_t<I>
+                typename I = iterator_t<Rng>,
+                CONCEPT_REQUIRES_(InputRange<Rng>() && IndirectPredicate<R, projected<I, P> >())>
+            difference_type_t<I>
             operator()(Rng &&rng, R pred, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(pred), std::move(proj));
@@ -58,11 +56,7 @@ namespace ranges
 
         /// \sa `count_if_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& count_if = static_const<with_braced_init_args<count_if_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<count_if_fn>, count_if)
         /// @}
     } // namespace v3
 } // namespace ranges

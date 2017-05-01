@@ -18,7 +18,7 @@
 #include <meta/meta.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/utility/get.hpp>
-#include <range/v3/utility/optional.hpp>
+#include <range/v3/detail/optional.hpp>
 
 namespace ranges
 {
@@ -38,16 +38,16 @@ namespace ranges
             {}
             template<typename ...Args>
             semiregular(in_place_t, Args &&...args)
-              : t_(in_place, std::forward<Args>(args)...)
+              : t_(in_place, static_cast<Args&&>(args)...)
             {}
             T & get()
             {
-                RANGES_ASSERT(!!t_);
+                RANGES_EXPECT(t_);
                 return *t_;
             }
             T const & get() const
             {
-                RANGES_ASSERT(!!t_);
+                RANGES_EXPECT(t_);
                 return *t_;
             }
             semiregular &operator=(T const &t)
@@ -70,15 +70,15 @@ namespace ranges
             }
             template<typename...Args>
             auto operator()(Args &&...args) ->
-                decltype(std::declval<T &>()(std::forward<Args>(args)...))
+                decltype(std::declval<T &>()(static_cast<Args&&>(args)...))
             {
-                return get()(std::forward<Args>(args)...);
+                return get()(static_cast<Args&&>(args)...);
             }
             template<typename...Args>
             auto operator()(Args &&...args) const ->
-                decltype(std::declval<T const &>()(std::forward<Args>(args)...))
+                decltype(std::declval<T const &>()(static_cast<Args&&>(args)...))
             {
-                return get()(std::forward<Args>(args)...);
+                return get()(static_cast<Args&&>(args)...);
             }
         };
 

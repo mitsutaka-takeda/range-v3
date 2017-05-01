@@ -170,12 +170,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="scratch\scratch.cpp">
-      <CppLanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">c++1y</CppLanguageStandard>
-      <CppLanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">c++1y</CppLanguageStandard>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="test\action\cont_concepts.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -516,6 +510,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="test\algorithm\sample.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="test\algorithm\search.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -660,6 +658,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="test\config.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="test\constexpr_core.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -709,6 +711,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="test\numeric\partial_sum.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test\span.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
@@ -796,6 +802,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="test\view\drop_exactly.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="test\view\drop_while.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -857,6 +867,26 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="test\view\reverse.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test\view\sample.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test\view\set_difference.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test\view\set_intersection.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test\view\set_symmetric_difference.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test\view\set_union.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
@@ -976,7 +1006,6 @@
     <ClInclude Include="include\range\v3\algorithm\max.hpp" />
     <ClInclude Include="include\range\v3\algorithm\max_element.hpp" />
     <ClInclude Include="include\range\v3\algorithm\merge.hpp" />
-    <ClInclude Include="include\range\v3\algorithm\merge_move.hpp" />
     <ClInclude Include="include\range\v3\algorithm\min.hpp" />
     <ClInclude Include="include\range\v3\algorithm\minmax.hpp" />
     <ClInclude Include="include\range\v3\algorithm\minmax_element.hpp" />
@@ -990,7 +1019,6 @@
     <ClInclude Include="include\range\v3\algorithm\partial_sort_copy.hpp" />
     <ClInclude Include="include\range\v3\algorithm\partition.hpp" />
     <ClInclude Include="include\range\v3\algorithm\partition_copy.hpp" />
-    <ClInclude Include="include\range\v3\algorithm\partition_move.hpp" />
     <ClInclude Include="include\range\v3\algorithm\partition_point.hpp" />
     <ClInclude Include="include\range\v3\algorithm\permutation.hpp" />
     <ClInclude Include="include\range\v3\algorithm\random_shuffle.hpp" />
@@ -1006,6 +1034,7 @@
     <ClInclude Include="include\range\v3\algorithm\reverse_copy.hpp" />
     <ClInclude Include="include\range\v3\algorithm\rotate.hpp" />
     <ClInclude Include="include\range\v3\algorithm\rotate_copy.hpp" />
+    <ClInclude Include="include\range\v3\algorithm\sample.hpp" />
     <ClInclude Include="include\range\v3\algorithm\search.hpp" />
     <ClInclude Include="include\range\v3\algorithm\search_n.hpp" />
     <ClInclude Include="include\range\v3\algorithm\set_algorithm.hpp" />
@@ -1025,8 +1054,8 @@
     <ClInclude Include="include\range\v3\begin_end.hpp" />
     <ClInclude Include="include\range\v3\core.hpp" />
     <ClInclude Include="include\range\v3\detail\config.hpp" />
-    <ClInclude Include="include\range\v3\detail\disable_warnings.hpp" />
-    <ClInclude Include="include\range\v3\detail\re_enable_warnings.hpp" />
+    <ClInclude Include="include\range\v3\detail\optional.hpp" />
+    <ClInclude Include="include\range\v3\detail\variant.hpp" />
     <ClInclude Include="include\range\v3\distance.hpp" />
     <ClInclude Include="include\range\v3\empty.hpp" />
     <ClInclude Include="include\range\v3\front.hpp" />
@@ -1055,7 +1084,6 @@
     <ClInclude Include="include\range\v3\utility\common_tuple.hpp" />
     <ClInclude Include="include\range\v3\utility\common_type.hpp" />
     <ClInclude Include="include\range\v3\utility\compressed_pair.hpp" />
-    <ClInclude Include="include\range\v3\utility\compressed_tuple.hpp" />
     <ClInclude Include="include\range\v3\utility\concepts.hpp" />
     <ClInclude Include="include\range\v3\utility\copy.hpp" />
     <ClInclude Include="include\range\v3\utility\counted_iterator.hpp" />
@@ -1063,7 +1091,6 @@
     <ClInclude Include="include\range\v3\utility\functional.hpp" />
     <ClInclude Include="include\range\v3\utility\get.hpp" />
     <ClInclude Include="include\range\v3\utility\infinity.hpp" />
-    <ClInclude Include="include\range\v3\utility\integer_sequence.hpp" />
     <ClInclude Include="include\range\v3\utility\iterator.hpp" />
     <ClInclude Include="include\range\v3\utility\iterator_concepts.hpp" />
     <ClInclude Include="include\range\v3\utility\iterator_traits.hpp" />
@@ -1072,6 +1099,7 @@
     <ClInclude Include="include\range\v3\utility\move.hpp" />
     <ClInclude Include="include\range\v3\utility\nullptr_v.hpp" />
     <ClInclude Include="include\range\v3\utility\optional.hpp" />
+    <ClInclude Include="include\range\v3\utility\random.hpp" />
     <ClInclude Include="include\range\v3\utility\safe_int.hpp" />
     <ClInclude Include="include\range\v3\utility\semiregular.hpp" />
     <ClInclude Include="include\range\v3\utility\static_const.hpp" />
@@ -1095,6 +1123,7 @@
     <ClInclude Include="include\range\v3\view\c_str.hpp" />
     <ClInclude Include="include\range\v3\view\delimit.hpp" />
     <ClInclude Include="include\range\v3\view\drop.hpp" />
+    <ClInclude Include="include\range\v3\view\drop_exactly.hpp" />
     <ClInclude Include="include\range\v3\view\drop_while.hpp" />
     <ClInclude Include="include\range\v3\view\empty.hpp" />
     <ClInclude Include="include\range\v3\view\filter.hpp" />
@@ -1115,6 +1144,7 @@
     <ClInclude Include="include\range\v3\view\replace.hpp" />
     <ClInclude Include="include\range\v3\view\replace_if.hpp" />
     <ClInclude Include="include\range\v3\view\reverse.hpp" />
+    <ClInclude Include="include\range\v3\view\set_algorithm.hpp" />
     <ClInclude Include="include\range\v3\view\single.hpp" />
     <ClInclude Include="include\range\v3\view\slice.hpp" />
     <ClInclude Include="include\range\v3\view\split.hpp" />
@@ -1164,7 +1194,6 @@
     <Text Include="doc\CMakeLists.txt" />
     <Text Include="example\CMakeLists.txt" />
     <Text Include="LICENSE.txt" />
-    <Text Include="scratch\CMakeLists.txt" />
     <Text Include="test\action\CMakeLists.txt" />
     <Text Include="test\algorithm\CMakeLists.txt" />
     <Text Include="test\CMakeLists.txt" />

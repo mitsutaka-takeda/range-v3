@@ -48,8 +48,8 @@ namespace ranges
                 struct ConceptImpl
                 {
                     template<typename Rng, typename C, typename P = ident,
-                        typename I = range_iterator_t<Rng>>
-                    auto requires_(Rng&&, C&&, P&& = P{}) -> decltype(
+                        typename I = iterator_t<Rng>>
+                    auto requires_() -> decltype(
                         concepts::valid_expr(
                             concepts::model_of<concepts::ForwardRange, Rng>(),
                             concepts::model_of<concepts::ErasableRange, Rng, I, I>(),
@@ -66,7 +66,7 @@ namespace ranges
                 {
                     auto it = ranges::remove_if(rng, std::move(pred), std::move(proj));
                     ranges::erase(rng, it, ranges::end(rng));
-                    return std::forward<Rng>(rng);
+                    return static_cast<Rng&&>(rng);
                 }
 
             #ifndef RANGES_DOXYGEN_INVOKED
@@ -77,14 +77,14 @@ namespace ranges
                     CONCEPT_ASSERT_MSG(ForwardRange<Rng>(),
                         "The object on which action::remove_if operates must be a model of the "
                         "ForwardRange concept.");
-                    using I = range_iterator_t<Rng>;
+                    using I = iterator_t<Rng>;
                     CONCEPT_ASSERT_MSG(ErasableRange<Rng, I, I>(),
                         "The object on which action::remove_if operates must allow element "
                         "removal.");
-                    CONCEPT_ASSERT_MSG(IndirectCallable<P, I>(),
+                    CONCEPT_ASSERT_MSG(IndirectInvocable<P, I>(),
                         "The projection function must accept objects of the iterator's value type, "
                         "reference type, and common reference type.");
-                    CONCEPT_ASSERT_MSG(IndirectCallablePredicate<C, Projected<I, P>>(),
+                    CONCEPT_ASSERT_MSG(IndirectPredicate<C, projected<I, P>>(),
                         "The predicate passed to action::remove_if must accept objects returned "
                         "by the projection function, or of the range's value type if no projection "
                         "is specified.");
@@ -99,10 +99,7 @@ namespace ranges
             /// \ingroup group-actions
             /// \sa action
             /// \sa with_braced_init_args
-            namespace
-            {
-                constexpr auto&& remove_if = static_const<action<remove_if_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(action<remove_if_fn>, remove_if)
         }
         /// @}
     }

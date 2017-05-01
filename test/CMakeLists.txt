@@ -1,15 +1,11 @@
-# Strange, need to use static linking here or tests fail.
-#if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" )
-#  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-#endif()
-
-#set(CMAKE_CXX_COMPILER_FLAGS "${CMAKE_CXX_COMPILER_FLAGS} -g")
-
 add_subdirectory(action)
 add_subdirectory(algorithm)
 add_subdirectory(numeric)
 add_subdirectory(utility)
 add_subdirectory(view)
+
+add_executable(config config.cpp)
+add_test(test.config config)
 
 add_executable(container_conversion container_conversion.cpp)
 add_test(test.container_conversion container_conversion)
@@ -22,6 +18,9 @@ add_test(test.view_facade view_facade)
 
 add_executable(view_adaptor view_adaptor.cpp)
 add_test(test.view_adaptor view_adaptor)
+
+add_executable(index index.cpp)
+add_test(test.index index)
 
 add_executable(iterator_range iterator_range.cpp)
 add_test(test.iterator_range iterator_range)
@@ -40,3 +39,12 @@ add_test(test.getlines, getlines)
 
 add_executable(istream_range istream_range.cpp)
 add_test(test.istream_range, istream_range)
+
+add_executable(bug474 bug474.cpp)
+add_test(test.bug474, bug474)
+
+add_executable(bug566 bug566.cpp)
+add_test(test.bug566, bug566)
+
+add_executable(span span.cpp)
+add_test(test.span, span)

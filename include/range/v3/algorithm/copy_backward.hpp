@@ -20,7 +20,6 @@
 #include <range/v3/range_traits.hpp>
 #include <range/v3/utility/iterator_concepts.hpp>
 #include <range/v3/utility/iterator_traits.hpp>
-#include <range/v3/utility/functional.hpp>
 #include <range/v3/utility/static_const.hpp>
 #include <range/v3/utility/tagged_pair.hpp>
 #include <range/v3/algorithm/tagspec.hpp>
@@ -35,7 +34,7 @@ namespace ranges
         {
             template<typename I, typename S, typename O,
                 CONCEPT_REQUIRES_(
-                    BidirectionalIterator<I>() && IteratorRange<I, S>() &&
+                    BidirectionalIterator<I>() && Sentinel<S, I>() &&
                     BidirectionalIterator<O>() &&
                     IndirectlyCopyable<I, O>()
                 )>
@@ -48,13 +47,13 @@ namespace ranges
             }
 
             template<typename Rng, typename O,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(
                     BidirectionalRange<Rng>() &&
                     BidirectionalIterator<O>() &&
                     IndirectlyCopyable<I, O>()
                 )>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)>
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)>
             operator()(Rng &&rng, O out) const
             {
                 return (*this)(begin(rng), end(rng), std::move(out));
@@ -63,11 +62,8 @@ namespace ranges
 
         /// \sa `copy_backward_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& copy_backward = static_const<with_braced_init_args<copy_backward_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<copy_backward_fn>,
+                               copy_backward)
         /// @}
     } // namespace v3
 } // namespace ranges

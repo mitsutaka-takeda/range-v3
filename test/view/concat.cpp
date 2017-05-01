@@ -13,9 +13,12 @@
 #include <vector>
 #include <range/v3/core.hpp>
 #include <range/v3/view/concat.hpp>
+#include <range/v3/view/generate.hpp>
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/remove_if.hpp>
+#include <range/v3/view/take_while.hpp>
 #include <range/v3/algorithm/equal.hpp>
+#include <range/v3/utility/copy.hpp>
 #include "../simple_test.hpp"
 #include "../test_utils.hpp"
 
@@ -26,7 +29,7 @@ int main()
     std::vector<std::string> his_face{"this", "is", "his", "face"};
     std::vector<std::string> another_mess{"another", "fine", "mess"};
     auto joined = view::concat(his_face, another_mess);
-    ::models<concepts::RandomAccessView>(joined);
+    ::models<concepts::RandomAccessView>(aux::copy(joined));
     static_assert(std::is_same<range_reference_t<decltype(joined)>, std::string &>::value, "");
     CHECK(joined.size() == 7u);
     CHECK((joined.end() - joined.begin()) == 7);
@@ -81,6 +84,14 @@ int main()
         auto f_rng1 = b | even_filter;
 
         CHECK(equal(view::concat(f_rng0, f_rng1), {0, 2, 4}));
+    }
+
+    // Regression test for http://github.com/ericniebler/range-v3/issues/395.
+    {
+        int i = 0;
+        auto rng = ranges::view::concat(ranges::view::generate([&]{ return i++; }))
+            | ranges::view::take_while([](int i){ return i < 30; });
+        CHECK(ranges::distance(ranges::begin(rng), ranges::end(rng)) == 30);
     }
 
     return test_result();

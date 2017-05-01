@@ -43,9 +43,9 @@ namespace ranges
                     IndirectlyCopyable<I, O>()
                 )>
             tagged_pair<tag::in(I), tag::out(O)>
-            operator()(I begin, iterator_difference_t<I> n, O out) const
+            operator()(I begin, difference_type_t<I> n, O out) const
             {
-                RANGES_ASSERT(0 <= n);
+                RANGES_EXPECT(0 <= n);
                 auto norig = n;
                 auto b = uncounted(begin);
                 for(; n != 0; ++b, ++out, --n)
@@ -56,11 +56,7 @@ namespace ranges
 
         /// \sa `copy_n_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& copy_n = static_const<with_braced_init_args<copy_n_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<copy_n_fn>, copy_n)
         /// @}
     } // namespace v3
 } // namespace ranges

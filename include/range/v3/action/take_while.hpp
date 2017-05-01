@@ -47,13 +47,13 @@ namespace ranges
                 struct ConceptImpl
                 {
                     template<typename Rng, typename Fun,
-                        typename I = range_iterator_t<Rng>,
-                        typename S = range_sentinel_t<Rng>>
-                    auto requires_(Rng&&, Fun&&) -> decltype(
+                        typename I = iterator_t<Rng>,
+                        typename S = sentinel_t<Rng>>
+                    auto requires_() -> decltype(
                         concepts::valid_expr(
                             concepts::model_of<concepts::ForwardRange, Rng>(),
                             concepts::model_of<concepts::ErasableRange, Rng, I, S>(),
-                            concepts::is_true(IndirectCallablePredicate<Fun, I>{})
+                            concepts::is_true(IndirectPredicate<Fun, I>{})
                         ));
                 };
 
@@ -66,7 +66,7 @@ namespace ranges
                 {
                     ranges::action::erase(rng, find_if_not(begin(rng), end(rng), std::move(fun)),
                         end(rng));
-                    return std::forward<Rng>(rng);
+                    return static_cast<Rng&&>(rng);
                 }
 
             #ifndef RANGES_DOXYGEN_INVOKED
@@ -77,12 +77,12 @@ namespace ranges
                     CONCEPT_ASSERT_MSG(ForwardRange<Rng>(),
                         "The object on which action::take_while operates must be a model of the "
                         "ForwardRange concept.");
-                    using I = range_iterator_t<Rng>;
-                    using S = range_sentinel_t<Rng>;
+                    using I = iterator_t<Rng>;
+                    using S = sentinel_t<Rng>;
                     CONCEPT_ASSERT_MSG(ErasableRange<Rng, I, S>(),
                         "The object on which action::take_while operates must allow element "
                         "removal.");
-                    CONCEPT_ASSERT_MSG(IndirectCallablePredicate<Fun, I>(),
+                    CONCEPT_ASSERT_MSG(IndirectPredicate<Fun, I>(),
                         "The function passed to action::take_while must be callable with objects "
                         "of the range's common reference type, and it must return something convertible to "
                         "bool.");
@@ -93,10 +93,7 @@ namespace ranges
             /// \ingroup group-actions
             /// \relates take_while_fn
             /// \sa action
-            namespace
-            {
-                constexpr auto&& take_while = static_const<action<take_while_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(action<take_while_fn>, take_while)
         }
         /// @}
     }

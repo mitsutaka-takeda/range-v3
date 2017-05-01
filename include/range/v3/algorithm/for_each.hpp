@@ -18,9 +18,11 @@
 #include <range/v3/begin_end.hpp>
 #include <range/v3/range_traits.hpp>
 #include <range/v3/range_concepts.hpp>
+#include <range/v3/algorithm/tagspec.hpp>
 #include <range/v3/utility/functional.hpp>
 #include <range/v3/utility/iterator_traits.hpp>
 #include <range/v3/utility/static_const.hpp>
+#include <range/v3/utility/tagged_pair.hpp>
 
 namespace ranges
 {
@@ -31,35 +33,32 @@ namespace ranges
         struct for_each_fn
         {
             template<typename I, typename S, typename F, typename P = ident,
-                CONCEPT_REQUIRES_(InputIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallable<F, Projected<I, P>>())>
-            I operator()(I begin, S end, F fun_, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(InputIterator<I>() && Sentinel<S, I>() &&
+                    MoveIndirectInvocable<F, projected<I, P>>())>
+            tagged_pair<tag::in(I), tag::fun(F)>
+            operator()(I begin, S end, F fun, P proj = P{}) const
             {
-                auto &&fun = as_function(fun_);
-                auto &&proj = as_function(proj_);
                 for(; begin != end; ++begin)
                 {
-                    fun(proj(*begin));
+                    invoke(fun, invoke(proj, *begin));
                 }
-                return begin;
+                return {detail::move(begin), detail::move(fun)};
             }
 
             template<typename Rng, typename F, typename P = ident,
-                typename I = range_iterator_t<Rng>,
-                CONCEPT_REQUIRES_(InputRange<Rng>() && IndirectCallable<F, Projected<I, P>>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, F fun, P proj = P{}) const
+                CONCEPT_REQUIRES_(InputRange<Rng>() &&
+                    MoveIndirectInvocable<F, projected<iterator_t<Rng>, P>>())>
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::fun(F)>
+            operator()(Rng &&rng, F fun, P proj = P{}) const
             {
-                return (*this)(begin(rng), end(rng), std::move(fun), std::move(proj));
+                return {(*this)(begin(rng), end(rng), ref(fun), detail::move(proj)).in(),
+                    detail::move(fun)};
             }
         };
 
         /// \sa `for_each_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& for_each = static_const<with_braced_init_args<for_each_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<for_each_fn>, for_each)
         /// @}
     } // namespace v3
 } // namespace ranges

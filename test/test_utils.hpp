@@ -11,8 +11,10 @@
 #define RANGES_TEST_UTILS_HPP
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
 #include <initializer_list>
+#include <ostream>
 #include <meta/meta.hpp>
 #include <range/v3/distance.hpp>
 #include <range/v3/begin_end.hpp>
@@ -21,32 +23,44 @@
 #include <range/v3/utility/iterator_traits.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/range_traits.hpp>
+#include "./simple_test.hpp"
 #include "./test_iterators.hpp"
 
-template<typename Val, typename Rng>
-void check_equal(Rng && actual, std::initializer_list<Val> expected)
+struct check_equal_fn
 {
-    auto begin0 = ranges::begin(actual);
-    auto end0 = ranges::end(actual);
-    auto begin1 = ranges::begin(expected), end1 = ranges::end(expected);
-    for(; begin0 != end0 && begin1 != end1; ++begin0, ++begin1)
-        CHECK(*begin0 == *begin1);
-    CHECK(begin0 == end0);
-    CHECK(begin1 == end1);
-}
+    template<typename T, typename U>
+    using BothRanges = meta::strict_and<ranges::InputRange<T>, ranges::InputRange<U>>;
 
-template<typename Rng, typename Rng2>
-void check_equal(Rng && actual, Rng2&& expected)
-{
-    auto begin0 = ranges::begin(actual);
-    auto end0 = ranges::end(actual);
-    auto begin1 = ranges::begin(expected);
-    auto end1 = ranges::end(expected);
-    for(; begin0 != end0 && begin1 != end1; ++begin0, ++begin1)
-        CHECK(*begin0 == *begin1);
-    CHECK(begin0 == end0);
-    CHECK(begin1 == end1);
-}
+    template<typename T, typename U,
+        CONCEPT_REQUIRES_(!BothRanges<T, U>())>
+    void operator()(T && actual, U && expected) const
+    {
+        CHECK((T &&) actual == (U &&) expected);
+    }
+
+    template<typename Rng1, typename Rng2,
+        CONCEPT_REQUIRES_(BothRanges<Rng1, Rng2>())>
+    void operator()(Rng1 && actual, Rng2 && expected) const
+    {
+        auto begin0 = ranges::begin(actual);
+        auto end0 = ranges::end(actual);
+        auto begin1 = ranges::begin(expected);
+        auto end1 = ranges::end(expected);
+        for(; begin0 != end0 && begin1 != end1; ++begin0, ++begin1)
+            (*this)(*begin0, *begin1);
+        CHECK(begin0 == end0);
+        CHECK(begin1 == end1);
+    }
+
+    template<typename Rng, typename Val,
+        CONCEPT_REQUIRES_(ranges::InputRange<Rng>())>
+    void operator()(Rng && actual, std::initializer_list<Val> && expected) const
+    {
+        (*this)(actual, expected);
+    }
+};
+
+RANGES_INLINE_VARIABLE(check_equal_fn, check_equal)
 
 template<typename Expected, typename Actual>
 void has_type(Actual &&)
@@ -242,5 +256,44 @@ test_range_algo_2<Algo, RvalueOK1, RvalueOK2> make_testable_2(Algo algo)
 {
     return test_range_algo_2<Algo, RvalueOK1, RvalueOK2>{algo};
 }
+
+// a simple type to test move semantics
+struct MoveOnlyString
+{
+    char const *sz_;
+
+    MoveOnlyString(char const *sz = "")
+      : sz_(sz)
+    {}
+    MoveOnlyString(MoveOnlyString &&that)
+      : sz_(that.sz_)
+    {
+        that.sz_ = "";
+    }
+    MoveOnlyString(MoveOnlyString const &) = delete;
+    MoveOnlyString &operator=(MoveOnlyString &&that)
+    {
+        sz_ = that.sz_;
+        that.sz_ = "";
+        return *this;
+    }
+    MoveOnlyString &operator=(MoveOnlyString const &) = delete;
+    bool operator==(MoveOnlyString const &that) const
+    {
+        return 0 == std::strcmp(sz_, that.sz_);
+    }
+    bool operator<(const MoveOnlyString &that) const
+    {
+        return std::strcmp(sz_, that.sz_) < 0;
+    }
+    bool operator!=(MoveOnlyString const &that) const
+    {
+        return !(*this == that);
+    }
+    friend std::ostream & operator<< (std::ostream &sout, MoveOnlyString const &str)
+    {
+        return sout << '"' << str.sz_ << '"';
+    }
+};
 
 #endif

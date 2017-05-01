@@ -50,6 +50,11 @@
 //   Thanks to github's Arzar for bringing date::week_number
 //     to my attention.
 
+#include <range/v3/detail/config.hpp>
+
+#if RANGES_CXX_RETURN_TYPE_DEDUCTION >= RANGES_CXX_RETURN_TYPE_DEDUCTION_14 && \
+    RANGES_CXX_GENERIC_LAMBDAS >= RANGES_CXX_GENERIC_LAMBDAS_14
+
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -110,7 +115,7 @@ auto by_month() {
 
 auto by_week() {
     return view::group_by([](date a, date b) {
-        // ++a because week_numer is Mon-Sun and we want Sun-Sat
+        // ++a because week_number is Mon-Sun and we want Sun-Sat
         return (++a).week_number() == (++b).week_number();
     });
 }
@@ -124,7 +129,7 @@ std::string format_day(date d) {
 auto format_weeks() {
     return view::transform([](/*Range<date>*/ auto week) {
         return boost::str(boost::format("%1%%2%%|22t|")
-            % std::string((int)front(week).day_of_week() * 3, ' ')
+            % std::string(front(week).day_of_week() * 3u, ' ')
             % (week | view::transform(format_day) | action::join));
     });
 }
@@ -140,7 +145,7 @@ std::string month_title(date d) {
 // Out: Range<Range<std::string>>: year of months of formatted wks
 auto layout_months() {
     return view::transform([](/*Range<date>*/ auto month) {
-        int week_count = distance(month | by_week());
+        auto week_count = static_cast<std::ptrdiff_t>(distance(month | by_week()));
         return view::concat(
             view::single(month_title(front(month))),
             month | by_week() | format_weeks(),
@@ -148,13 +153,15 @@ auto layout_months() {
     });
 }
 
+namespace cal_example {
+
 // In:  Range<T>
 // Out: Range<Range<T>>, where each inner range has $n$ elements.
 //                       The last range may have fewer.
 template<class Rng>
 class chunk_view : public view_adaptor<chunk_view<Rng>, Rng> {
     CONCEPT_ASSERT(ForwardRange<Rng>());
-    std::size_t n_;
+    ranges::range_difference_type_t<Rng> n_;
     friend range_access;
     class adaptor;
     adaptor begin_adaptor() {
@@ -162,29 +169,31 @@ class chunk_view : public view_adaptor<chunk_view<Rng>, Rng> {
     }
 public:
     chunk_view() = default;
-    chunk_view(Rng rng, std::size_t n)
-      : view_adaptor_t<chunk_view>(std::move(rng)), n_(n)
+    chunk_view(Rng rng, ranges::range_difference_type_t<Rng> n)
+      : chunk_view::view_adaptor(std::move(rng)), n_(n)
     {}
 };
 
 template<class Rng>
 class chunk_view<Rng>::adaptor : public adaptor_base {
-    std::size_t n_;
-    range_sentinel_t<Rng> end_;
+    ranges::range_difference_type_t<Rng> n_;
+    sentinel_t<Rng> end_;
 public:
     adaptor() = default;
-    adaptor(std::size_t n, range_sentinel_t<Rng> end)
+    adaptor(ranges::range_difference_type_t<Rng> n, sentinel_t<Rng> end)
       : n_(n), end_(end)
     {}
-    auto get(range_iterator_t<Rng> it) const {
+    auto read(iterator_t<Rng> it) const {
         return view::take(make_iterator_range(std::move(it), end_), n_);
     }
-    void next(range_iterator_t<Rng> &it) {
+    void next(iterator_t<Rng> &it) {
         ranges::advance(it, n_, end_);
     }
     void prev() = delete;
     void distance_to() = delete;
 };
+
+}  // namespace cal_example
 
 // In:  Range<T>
 // Out: Range<Range<T>>, where each inner range has $n$ elements.
@@ -192,8 +201,9 @@ public:
 auto chunk(std::size_t n) {
     return make_pipeable([=](auto&& rng) {
         using Rng = decltype(rng);
-        return chunk_view<view::all_t<Rng>>{
-            view::all(std::forward<Rng>(rng)), n};
+        return cal_example::chunk_view<view::all_t<Rng>>{
+            view::all(std::forward<Rng>(rng)),
+            static_cast<ranges::range_difference_type_t<Rng>>(n)};
     });
 }
 
@@ -202,7 +212,7 @@ auto chunk(std::size_t n) {
 template<class Rngs>
 class interleave_view : public view_facade<interleave_view<Rngs>> {
     friend range_access;
-    std::vector<range_value_t<Rngs>> rngs_;
+    std::vector<range_value_type_t<Rngs>> rngs_;
     struct cursor;
     cursor begin_cursor() {
         return {0, &rngs_, view::transform(rngs_, ranges::begin)};
@@ -217,20 +227,20 @@ public:
 template<class Rngs>
 struct interleave_view<Rngs>::cursor  {
     std::size_t n_;
-    std::vector<range_value_t<Rngs>> *rngs_;
-    std::vector<range_iterator_t<range_value_t<Rngs>>> its_;
-    decltype(auto) get() const {
+    std::vector<range_value_type_t<Rngs>> *rngs_;
+    std::vector<iterator_t<range_value_type_t<Rngs>>> its_;
+    decltype(auto) read() const {
         return *its_[n_];
     }
     void next() {
         if(0 == ((++n_) %= its_.size()))
             for_each(its_, [](auto& it){ ++it; });
     }
-    bool done() const {
-        return n_ == 0 && its_.end() != mismatch(its_,
-            view::transform(*rngs_, ranges::end), std::not_equal_to<>()).in1();
+    bool equal(default_sentinel) const {
+        return n_ == 0 && its_.end() != mismatch(its_, *rngs_,
+            std::not_equal_to<>(), ident(), ranges::end).in1();
     }
-    CONCEPT_REQUIRES(ForwardRange<range_value_t<Rngs>>())
+    CONCEPT_REQUIRES(ForwardRange<range_value_type_t<Rngs>>())
     bool equal(cursor const& that) const {
         return n_ == that.n_ && its_ == that.its_;
     }
@@ -255,7 +265,7 @@ auto transpose() {
         CONCEPT_ASSERT(ForwardRange<Rngs>());
         return std::forward<Rngs>(rngs)
             | interleave()
-            | chunk(distance(rngs));
+            | chunk(static_cast<std::size_t>(distance(rngs)));
     });
 }
 
@@ -346,3 +356,8 @@ catch(std::exception &e) {
     std::cerr << "  what(): " << e.what();
     return 1;
 }
+
+#else
+#pragma message("calendar requires C++14 return type deduction and generic lambdas")
+int main() {}
+#endif

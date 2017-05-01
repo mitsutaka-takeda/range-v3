@@ -16,6 +16,7 @@
 
 #include <utility>
 #include <type_traits>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/begin_end.hpp>
 #include <range/v3/empty.hpp>
@@ -45,15 +46,15 @@ namespace ranges
         private:
             Rng rng_;
         public:
-            using iterator = range_iterator_t<Rng>;
-            using sentinel = range_sentinel_t<Rng>;
+            using iterator = iterator_t<Rng>;
+            using sentinel = sentinel_t<Rng>;
 
             tail_view() = default;
             tail_view(Rng rng)
-              : rng_(std::forward<Rng>(rng))
+              : rng_(static_cast<Rng&&>(rng))
             {
                 CONCEPT_ASSERT(InputRange<Rng>());
-                RANGES_ASSERT(!ForwardRange<Rng>() || !empty(rng_));
+                RANGES_EXPECT(!ForwardRange<Rng>() || !empty(rng_));
             }
             iterator begin()
             {
@@ -74,10 +75,10 @@ namespace ranges
                 return ranges::end(rng_);
             }
             CONCEPT_REQUIRES(SizedView<Rng>())
-            constexpr range_size_t<Rng> size() const
+            constexpr range_size_type_t<Rng> size() const
             {
                 return range_cardinality<Rng>::value > 0 ?
-                    (range_size_t<Rng>)range_cardinality<Rng>::value - 1 :
+                    (range_size_type_t<Rng>)range_cardinality<Rng>::value - 1 :
                     ranges::size(rng_) - 1;
             }
             Rng & base()
@@ -99,7 +100,7 @@ namespace ranges
                 {
                     static_assert(range_cardinality<Rng>::value != 0,
                         "Can't take the tail of an empty range.");
-                    return tail_view<all_t<Rng>>{all(std::forward<Rng>(rng))};
+                    return tail_view<all_t<Rng>>{all(static_cast<Rng&&>(rng))};
                 }
 
             #ifndef RANGES_DOXYGEN_INVOKED
@@ -115,13 +116,12 @@ namespace ranges
 
             /// \relates tail_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& tail = static_const<view<tail_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<tail_fn>, tail)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::tail_view)
 
 #endif

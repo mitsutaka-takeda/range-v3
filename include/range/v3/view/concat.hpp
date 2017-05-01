@@ -18,6 +18,7 @@
 #include <utility>
 #include <type_traits>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/size.hpp>
 #include <range/v3/begin_end.hpp>
@@ -38,19 +39,8 @@ namespace ranges
         /// \cond
         namespace detail
         {
-            // Dereference the iterator and coerce the return type
-            template<typename Reference>
-            struct deref_fun
-            {
-                template<typename I>
-                Reference operator()(I const &it) const
-                {
-                    return *it;
-                }
-            };
-
             template<typename State, typename Value>
-            using concat_cardinality =
+            using concat_cardinality_ =
                 std::integral_constant<cardinality,
                     State::value == infinite || Value::value == infinite ?
                         infinite :
@@ -59,6 +49,12 @@ namespace ranges
                             State::value == finite || Value::value == finite ?
                                 finite :
                                 static_cast<cardinality>(State::value + Value::value)>;
+
+            template<typename... Rngs>
+            using concat_cardinality = meta::fold<
+                meta::list<range_cardinality<Rngs>...>,
+                std::integral_constant<cardinality, static_cast<cardinality>(0)>,
+                meta::quote<concat_cardinality_>>;
         }
         /// \endcond
 
@@ -67,37 +63,49 @@ namespace ranges
         template<typename...Rngs>
         struct concat_view
           : view_facade<concat_view<Rngs...>,
-                meta::fold<
-                    meta::list<range_cardinality<Rngs>...>,
-                    std::integral_constant<cardinality, static_cast<cardinality>(0)>,
-                    meta::quote<detail::concat_cardinality>>::value>
+                detail::concat_cardinality<Rngs...>::value>
         {
         private:
             friend range_access;
-            using difference_type_ = common_type_t<range_difference_t<Rngs>...>;
+            using difference_type_ = common_type_t<range_difference_type_t<Rngs>...>;
             using size_type_ = meta::_t<std::make_unsigned<difference_type_>>;
             static constexpr std::size_t cranges{sizeof...(Rngs)};
             std::tuple<Rngs...> rngs_;
 
             template<bool IsConst>
-            struct sentinel;
+            struct cursor;
+
+            template<bool IsConst>
+            struct sentinel
+            {
+            private:
+                friend struct cursor<IsConst>;
+                template<typename T>
+                using constify_if = meta::invoke<meta::add_const_if_c<IsConst>, T>;
+                using concat_view_t = constify_if<concat_view>;
+                sentinel_t<constify_if<meta::back<meta::list<Rngs...>>>> end_;
+            public:
+                sentinel() = default;
+                sentinel(concat_view_t &rng, end_tag)
+                  : end_(end(std::get<cranges - 1>(rng.rngs_)))
+                {}
+            };
 
             template<bool IsConst>
             struct cursor
             {
-                using difference_type = common_type_t<range_difference_t<Rngs>...>;
+                using difference_type = common_type_t<range_difference_type_t<Rngs>...>;
             private:
-                friend struct sentinel<IsConst>;
                 template<typename T>
                 using constify_if = meta::invoke<meta::add_const_if_c<IsConst>, T>;
                 using concat_view_t = constify_if<concat_view>;
                 concat_view_t *rng_;
-                variant<range_iterator_t<constify_if<Rngs>>...> its_;
+                variant<iterator_t<constify_if<Rngs>>...> its_;
 
                 template<std::size_t N>
                 void satisfy(meta::size_t<N>)
                 {
-                    RANGES_ASSERT(its_.index() == N);
+                    RANGES_EXPECT(its_.index() == N);
                     if(ranges::get<N>(its_) == end(std::get<N>(rng_->rngs_)))
                     {
                         ranges::emplace<N + 1>(its_, begin(std::get<N + 1>(rng_->rngs_)));
@@ -106,14 +114,16 @@ namespace ranges
                 }
                 void satisfy(meta::size_t<cranges - 1>)
                 {
-                    RANGES_ASSERT(its_.index() == cranges - 1);
+                    RANGES_EXPECT(its_.index() == cranges - 1);
                 }
                 struct next_fun
                 {
                     cursor *pos;
-                    template<typename I, std::size_t N>
+                    template<typename I, std::size_t N,
+                        CONCEPT_REQUIRES_(Iterator<I>())>
                     void operator()(indexed_element<I, N> it) const
                     {
+                        RANGES_ASSERT(it.get() != end(std::get<N>(pos->rng_->rngs_)));
                         ++it.get();
                         pos->satisfy(meta::size_t<N>{});
                     }
@@ -121,13 +131,15 @@ namespace ranges
                 struct prev_fun
                 {
                     cursor *pos;
-                    template<typename I>
+                    template<typename I,
+                        CONCEPT_REQUIRES_(BidirectionalIterator<I>())>
                     void operator()(indexed_element<I, 0> it) const
                     {
                         RANGES_ASSERT(it.get() != begin(std::get<0>(pos->rng_->rngs_)));
                         --it.get();
                     }
-                    template<typename I, std::size_t N>
+                    template<typename I, std::size_t N,
+                        CONCEPT_REQUIRES_(N != 0 && BidirectionalIterator<I>())>
                     void operator()(indexed_element<I, N> it) const
                     {
                         if(it.get() == begin(std::get<N>(pos->rng_->rngs_)))
@@ -145,12 +157,14 @@ namespace ranges
                 {
                     cursor *pos;
                     difference_type n;
-                    template<typename I>
+                    template<typename I,
+                        CONCEPT_REQUIRES_(RandomAccessIterator<I>())>
                     void operator()(indexed_element<I, cranges - 1> it) const
                     {
                         ranges::advance(it.get(), n);
                     }
-                    template<typename I, std::size_t N>
+                    template<typename I, std::size_t N,
+                        CONCEPT_REQUIRES_(RandomAccessIterator<I>())>
                     void operator()(indexed_element<I, N> it) const
                     {
                         auto end = ranges::end(std::get<N>(pos->rng_->rngs_));
@@ -168,12 +182,14 @@ namespace ranges
                 {
                     cursor *pos;
                     difference_type n;
-                    template<typename I>
+                    template<typename I,
+                        CONCEPT_REQUIRES_(RandomAccessIterator<I>())>
                     void operator()(indexed_element<I, 0> it) const
                     {
                         ranges::advance(it.get(), n);
                     }
-                    template<typename I, std::size_t N>
+                    template<typename I, std::size_t N,
+                        CONCEPT_REQUIRES_(RandomAccessIterator<I>())>
                     void operator()(indexed_element<I, N> it) const
                     {
                         auto begin = ranges::begin(std::get<N>(pos->rng_->rngs_));
@@ -194,7 +210,7 @@ namespace ranges
                 };
                 [[noreturn]] static difference_type distance_to_(meta::size_t<cranges>, cursor const &, cursor const &)
                 {
-                    RANGES_ENSURE(false);
+                    RANGES_EXPECT(false);
                 }
                 template<std::size_t N>
                 static difference_type distance_to_(meta::size_t<N>, cursor const &from, cursor const &to)
@@ -211,13 +227,13 @@ namespace ranges
                     if(from.its_.index() < N && to.its_.index() > N)
                         return distance(std::get<N>(from.rng_->rngs_)) +
                             cursor::distance_to_(meta::size_t<N + 1>{}, from, to);
-                    RANGES_ASSERT(to.its_.index() == N);
+                    RANGES_EXPECT(to.its_.index() == N);
                     return distance(begin(std::get<N>(from.rng_->rngs_)), ranges::get<N>(to.its_));
                 }
             public:
                 // BUGBUG what about rvalue_reference and common_reference?
                 using reference = common_reference_t<range_reference_t<constify_if<Rngs>>...>;
-                using single_pass = meta::strict_or<SinglePass<range_iterator_t<Rngs>>...>;
+                using single_pass = meta::strict_or<SinglePass<iterator_t<Rngs>>...>;
                 cursor() = default;
                 cursor(concat_view_t &rng, begin_tag)
                   : rng_(&rng), its_{emplaced_index<0>, begin(std::get<0>(rng.rngs_))}
@@ -227,18 +243,25 @@ namespace ranges
                 cursor(concat_view_t &rng, end_tag)
                   : rng_(&rng), its_{emplaced_index<cranges-1>, end(std::get<cranges-1>(rng.rngs_))}
                 {}
-                reference get() const
+                reference read() const
                 {
                     // Kind of a dumb implementation. Surely there's a better way.
-                    return ranges::get<0>(unique_variant(its_.visit(detail::deref_fun<reference>{})));
+                    return ranges::get<0>(unique_variant(its_.visit(
+                        compose(convert_to<reference>{}, dereference_fn{}))));
                 }
                 void next()
                 {
                     its_.visit_i(next_fun{this});
                 }
+                CONCEPT_REQUIRES(EqualityComparable<decltype(its_)>())
                 bool equal(cursor const &pos) const
                 {
                     return its_ == pos.its_;
+                }
+                bool equal(sentinel<IsConst> const &pos) const
+                {
+                    return its_.index() == cranges - 1 &&
+                        ranges::get<cranges - 1>(its_) == pos.end_;
                 }
                 CONCEPT_REQUIRES(meta::and_c<(bool)BidirectionalRange<Rngs>()...>::value)
                 void prev()
@@ -254,32 +277,12 @@ namespace ranges
                         its_.visit_i(advance_rev_fun{this, n});
                 }
                 CONCEPT_REQUIRES(meta::and_c<(bool)
-                    SizedIteratorRange<range_iterator_t<Rngs>,
-                        range_iterator_t<Rngs>>()...>::value)
+                    SizedSentinel<iterator_t<Rngs>, iterator_t<Rngs>>()...>::value)
                 difference_type distance_to(cursor const &that) const
                 {
                     if(its_.index() <= that.its_.index())
                         return cursor::distance_to_(meta::size_t<0>{}, *this, that);
                     return -cursor::distance_to_(meta::size_t<0>{}, that, *this);
-                }
-            };
-            template<bool IsConst>
-            struct sentinel
-            {
-            private:
-                template<typename T>
-                using constify_if = meta::invoke<meta::add_const_if_c<IsConst>, T>;
-                using concat_view_t = constify_if<concat_view>;
-                range_sentinel_t<constify_if<meta::back<meta::list<Rngs...>>>> end_;
-            public:
-                sentinel() = default;
-                sentinel(concat_view_t &rng, end_tag)
-                  : end_(end(std::get<cranges - 1>(rng.rngs_)))
-                {}
-                bool equal(cursor<IsConst> const &pos) const
-                {
-                    return pos.its_.index() == cranges - 1 &&
-                        ranges::get<cranges - 1>(pos.its_) == end_;
                 }
             };
             cursor<false> begin_cursor()
@@ -307,12 +310,22 @@ namespace ranges
             explicit concat_view(Rngs...rngs)
               : rngs_{std::move(rngs)...}
             {}
-            CONCEPT_REQUIRES(meta::and_c<(bool)SizedRange<Rngs>()...>::value)
+            CONCEPT_REQUIRES(detail::concat_cardinality<Rngs...>::value >= 0)
             constexpr size_type_ size() const
             {
-                return range_cardinality<concat_view>::value >= 0 ?
-                    (size_type_)range_cardinality<concat_view>::value :
-                    tuple_foldl(tuple_transform(rngs_, ranges::size), size_type_{0}, plus{});
+                return static_cast<size_type_>(detail::concat_cardinality<Rngs...>::value);
+            }
+            CONCEPT_REQUIRES(detail::concat_cardinality<Rngs...>::value < 0 &&
+                meta::and_c<(bool)SizedRange<Rngs const>()...>::value)
+            RANGES_CXX14_CONSTEXPR size_type_ size() const
+            {
+                return const_cast<concat_view *>(this)->size();
+            }
+            CONCEPT_REQUIRES(detail::concat_cardinality<Rngs...>::value < 0 &&
+                meta::and_c<(bool)SizedRange<Rngs>()...>::value)
+            RANGES_CXX14_CONSTEXPR size_type_ size()
+            {
+                return tuple_foldl(tuple_transform(rngs_, ranges::size), size_type_{0}, plus{});
             }
         };
 
@@ -325,19 +338,18 @@ namespace ranges
                 {
                     static_assert(meta::and_c<(bool)InputRange<Rngs>()...>::value,
                         "Expecting Input Ranges");
-                    return concat_view<all_t<Rngs>...>{all(std::forward<Rngs>(rngs))...};
+                    return concat_view<all_t<Rngs>...>{all(static_cast<Rngs&&>(rngs))...};
                 }
             };
 
             /// \relates concat_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& concat = static_const<concat_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(concat_fn, concat)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::concat_view)
 
 #endif

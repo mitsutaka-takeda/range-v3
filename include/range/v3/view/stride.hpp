@@ -18,6 +18,7 @@
 #include <utility>
 #include <type_traits>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/size.hpp>
 #include <range/v3/distance.hpp>
@@ -25,7 +26,6 @@
 #include <range/v3/range_traits.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_adaptor.hpp>
-#include <range/v3/utility/box.hpp>
 #include <range/v3/utility/functional.hpp>
 #include <range/v3/utility/iterator.hpp>
 #include <range/v3/utility/static_const.hpp>
@@ -47,8 +47,8 @@ namespace ranges
         {
         private:
             friend range_access;
-            using size_type_ = range_size_t<Rng>;
-            using difference_type_ = range_difference_t<Rng>;
+            using size_type_ = range_size_type_t<Rng>;
+            using difference_type_ = range_difference_type_t<Rng>;
 
             // Bidirectional and random-access stride iterators need to remember how
             // far past they end they are, so that when they're decremented, they can
@@ -64,20 +64,28 @@ namespace ranges
             struct adaptor : adaptor_base, private offset_t
             {
             private:
-                using iterator = ranges::range_iterator_t<Rng>;
+                using iterator = ranges::iterator_t<Rng>;
                 stride_view const *rng_;
                 offset_t & offset() { return *this; }
                 offset_t const & offset() const { return *this; }
-                CONCEPT_REQUIRES(BidirectionalRange<Rng>())
-                void clean() const
+                difference_type_ clean_(std::true_type) const
                 {
-                    std::atomic<difference_type_> &off = offset();
-                    if(off == -1)
+                    std::atomic<difference_type_>& off = offset();
+                    difference_type_ o = off;
+                    if(o == -1)
                     {
-                        difference_type_ expected = -1;
                         // Set the offset if it's still -1. If not, leave it alone.
-                        (void) off.compare_exchange_strong(expected, calc_offset());
+                        (void) off.compare_exchange_strong(o, calc_offset());
                     }
+                    return o;
+                }
+                difference_type_ clean_(std::false_type) const
+                {
+                    return 0;
+                }
+                difference_type_ clean() const
+                {
+                    return clean_(BidirectionalRange<Rng>());
                 }
                 difference_type_ calc_offset() const
                 {
@@ -98,38 +106,46 @@ namespace ranges
                 }
                 void next(iterator &it)
                 {
-                    RANGES_ASSERT(0 == offset());
+                    difference_type_ off = offset();
+                    RANGES_EXPECT(0 == off);
                     RANGES_ASSERT(it != ranges::end(rng_->mutable_base()));
-                    offset() = ranges::advance(it, rng_->stride_ + offset(),
+                    offset() = ranges::advance(it, rng_->stride_ + off,
                         ranges::end(rng_->mutable_base()));
                 }
                 CONCEPT_REQUIRES(BidirectionalRange<Rng>())
                 void prev(iterator &it)
                 {
-                    clean();
-                    offset() = ranges::advance(it, -rng_->stride_ + offset(),
+                    difference_type_ off = clean();
+                    offset() = off = ranges::advance(it, -rng_->stride_ + off,
                         ranges::begin(rng_->mutable_base()));
-                    RANGES_ASSERT(0 == offset());
+                    RANGES_EXPECT(0 == off);
                 }
-                CONCEPT_REQUIRES(SizedIteratorRange<iterator, iterator>())
+                CONCEPT_REQUIRES(SizedSentinel<iterator, iterator>())
                 difference_type_ distance_to(iterator here, iterator there, adaptor const &that) const
                 {
-                    clean();
-                    that.clean();
-                    RANGES_ASSERT(rng_ == that.rng_);
-                    RANGES_ASSERT(0 == ((there - here) + that.offset() - offset()) % rng_->stride_);
-                    return ((there - here) + that.offset() - offset()) / rng_->stride_;
+                    RANGES_EXPECT(rng_ == that.rng_);
+                    difference_type_ delta = (there - here) + (that.clean() - clean());
+                    if(BidirectionalIterator<iterator>())
+                    {
+                        RANGES_EXPECT(0 == delta % rng_->stride_);
+                    }
+                    else
+                    {
+                        delta += rng_->stride_ - 1;
+                    }
+                    return delta / rng_->stride_;
                 }
                 CONCEPT_REQUIRES(RandomAccessRange<Rng>())
                 void advance(iterator &it, difference_type_ n)
                 {
-                    if(n != 0)
-                        clean();
+                    if(0 == n)
+                        return;
+                    difference_type_ off = clean();
                     if(0 < n)
-                        offset() = ranges::advance(it, n * rng_->stride_ + offset(),
+                        offset() = ranges::advance(it, n * rng_->stride_ + off,
                             ranges::end(rng_->mutable_base()));
                     else if(0 > n)
-                        offset() = ranges::advance(it, n * rng_->stride_ + offset(),
+                        offset() = ranges::advance(it, n * rng_->stride_ + off,
                             ranges::begin(rng_->mutable_base()));
                 }
             };
@@ -155,10 +171,10 @@ namespace ranges
         public:
             stride_view() = default;
             stride_view(Rng rng, difference_type_ stride)
-              : view_adaptor_t<stride_view>{std::move(rng)}
+              : stride_view::view_adaptor{std::move(rng)}
               , stride_(stride)
             {
-                RANGES_ASSERT(0 < stride_);
+                RANGES_EXPECT(0 < stride_);
             }
             CONCEPT_REQUIRES(SizedRange<Rng>())
             size_type_ size() const
@@ -182,16 +198,16 @@ namespace ranges
                 )
             public:
                 template<typename Rng, CONCEPT_REQUIRES_(InputRange<Rng>())>
-                stride_view<all_t<Rng>> operator()(Rng && rng, range_difference_t<Rng> step) const
+                stride_view<all_t<Rng>> operator()(Rng && rng, range_difference_type_t<Rng> step) const
                 {
-                    return {all(std::forward<Rng>(rng)), step};
+                    return {all(static_cast<Rng&&>(rng)), step};
                 }
 
                 // For the purpose of better error messages:
             #ifndef RANGES_DOXYGEN_INVOKED
             private:
                 template<typename Difference, CONCEPT_REQUIRES_(!Integral<Difference>())>
-                static detail::null_pipe bind(stride_fn, Difference &&)
+                static detail::null_pipe bind(stride_fn, const Difference &)
                 {
                     CONCEPT_ASSERT_MSG(Integral<Difference>(),
                         "The value to be used as the step in a call to view::stride must be a "
@@ -217,13 +233,12 @@ namespace ranges
 
             /// \relates stride_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& stride = static_const<view<stride_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<stride_fn>, stride)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::stride_view)
 
 #endif

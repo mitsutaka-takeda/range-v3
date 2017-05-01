@@ -39,7 +39,7 @@ if (NOT GIT_FOUND)
 endif()
 
 add_custom_target(gh-pages.clean
-    COMMAND ${CMAKE_COMMAND} -E remove *.png *.css *.js *.html
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/clean-gh-pages.cmake
     COMMAND ${CMAKE_COMMAND} -E remove_directory search
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/gh-pages
     COMMENT "Cleaning up doc/gh-pages"
@@ -55,7 +55,7 @@ add_custom_target(gh-pages.copy
 )
 
 execute_process(
-    COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+    COMMAND ${GIT_EXECUTABLE} -C ${CMAKE_SOURCE_DIR} rev-parse --short HEAD
     OUTPUT_VARIABLE RANGE_V3_GIT_SHORT_SHA
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )

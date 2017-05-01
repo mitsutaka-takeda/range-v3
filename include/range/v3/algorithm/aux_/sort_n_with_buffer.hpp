@@ -46,29 +46,25 @@ namespace ranges
             struct sort_n_with_buffer_fn
             {
                 template<typename I, typename B, typename C = ordered_less, typename P = ident,
-                    typename VI = iterator_common_reference_t<I>,
-                    typename VB = iterator_common_reference_t<B>,
+                    typename VI = iter_common_reference_t<I>,
+                    typename VB = iter_common_reference_t<B>,
                     CONCEPT_REQUIRES_(
                         Same<VI, VB>() &&
                         IndirectlyCopyable<I, B>() &&
                         Mergeable<B, I, I, C, P, P>()
                     )>
-                I operator()(I begin, iterator_difference_t<I> n, B buff, C r = C{}, P p = P{}) const
+                I operator()(I begin, difference_type_t<I> n, B buff, C r = C{}, P p = P{}) const
                 {
                     auto half = n / 2;
                     if(0 == half)
                         return next(begin, n);
-                    I m = (*this)(begin, half, buff, r);
-                          (*this)(m, n - half, buff, r);
+                    I m = (*this)(begin, half, buff, r, p);
+                          (*this)(m, n - half, buff, r, p);
                     return merge_n_with_buffer(begin, half, m, n - half, buff, r, p);
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& sort_n_with_buffer = static_const<sort_n_with_buffer_fn>::value;
-            }
-
+            RANGES_INLINE_VARIABLE(sort_n_with_buffer_fn, sort_n_with_buffer)
         } // namespace aux
     } // namespace v3
 } // namespace ranges

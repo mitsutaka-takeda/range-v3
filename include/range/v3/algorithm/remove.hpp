@@ -33,7 +33,7 @@ namespace ranges
         template<typename I, typename T, typename P = ident>
         using Removable = meta::strict_and<
             ForwardIterator<I>,
-            IndirectCallableRelation<equal_to, Projected<I, P>, T const *>,
+            IndirectRelation<equal_to, projected<I, P>, T const *>,
             Permutable<I>>;
 
         /// \addtogroup group-algorithms
@@ -41,16 +41,15 @@ namespace ranges
         struct remove_fn
         {
             template<typename I, typename S, typename T, typename P = ident,
-                CONCEPT_REQUIRES_(Removable<I, T, P>() && IteratorRange<I, S>())>
-            I operator()(I begin, S end, T const &val, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(Removable<I, T, P>() && Sentinel<S, I>())>
+            I operator()(I begin, S end, T const &val, P proj = P{}) const
             {
-                auto &&proj = as_function(proj_);
                 begin = find(std::move(begin), end, val, std::ref(proj));
                 if(begin != end)
                 {
                     for(I i = next(begin); i != end; ++i)
                     {
-                        if(!(proj(*i) == val))
+                        if(!(invoke(proj, *i) == val))
                         {
                             *begin = iter_move(i);
                             ++begin;
@@ -61,9 +60,9 @@ namespace ranges
             }
 
             template<typename Rng, typename T, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Removable<I, T, P>() && ForwardRange<Rng>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, T const &val, P proj = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, T const &val, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), val, std::move(proj));
             }
@@ -71,10 +70,7 @@ namespace ranges
 
         /// \sa `remove_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& remove = static_const<with_braced_init_args<remove_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<remove_fn>, remove)
 
         /// @}
     } // namespace v3

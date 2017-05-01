@@ -34,27 +34,23 @@ namespace ranges
         struct generate_n_fn
         {
             template<typename O, typename F,
-                CONCEPT_REQUIRES_(Function<F>() &&
-                    OutputIterator<O, concepts::Function::result_t<F> &&>())>
+                CONCEPT_REQUIRES_(Invocable<F&>() &&
+                    OutputIterator<O, result_of_t<F&()>>())>
             tagged_pair<tag::out(O), tag::fun(F)>
-            operator()(O begin, iterator_difference_t<O> n, F fun) const
+            operator()(O begin, difference_type_t<O> n, F fun) const
             {
-                RANGES_ASSERT(n >= 0);
+                RANGES_EXPECT(n >= 0);
                 auto norig = n;
                 auto b = uncounted(begin);
                 for(; 0 != n; ++b, --n)
-                    *b = fun();
-                return {recounted(begin, b, norig), fun};
+                    *b = invoke(fun);
+                return {recounted(begin, b, norig), detail::move(fun)};
             }
         };
 
         /// \sa `generate_n_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& generate_n = static_const<generate_n_fn>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(generate_n_fn, generate_n)
         // @}
     } // namespace v3
 } // namespace ranges

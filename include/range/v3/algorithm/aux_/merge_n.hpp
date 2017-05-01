@@ -56,14 +56,11 @@ namespace ranges
                         Mergeable<I0, I1, O, C, P0, P1>()
                     )>
                 tagged_tuple<tag::in1(I0), tag::in2(I1), tag::out(O)>
-                operator()(I0 begin0, iterator_difference_t<I0> n0,
-                           I1 begin1, iterator_difference_t<I1> n1,
+                operator()(I0 begin0, difference_type_t<I0> n0,
+                           I1 begin1, difference_type_t<I1> n1,
                            O out, C r = C{}, P0 p0 = P0{}, P1 p1 = P1{}) const
                 {
                     using T = tagged_tuple<tag::in1(I0), tag::in2(I1), tag::out(O)>;
-                    auto &&ir = as_function(r);
-                    auto &&ip0 = as_function(p0);
-                    auto &&ip1 = as_function(p1);
                     auto n0orig = n0;
                     auto n1orig = n1;
                     auto b0 = uncounted(begin0);
@@ -84,7 +81,7 @@ namespace ranges
                             begin1 = recounted(begin1, b1, n1orig);
                             return T{begin0, begin1, res.second};
                         }
-                        if(ir(ip1(*b1), ip0(*b0)))
+                        if(invoke(r, invoke(p1, *b1), invoke(p0, *b0)))
                         {
                             *out = *b1;
                             ++b1; ++out; --n1;
@@ -98,10 +95,7 @@ namespace ranges
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& merge_n = static_const<merge_n_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(merge_n_fn, merge_n)
         }
     } // namespace v3
 } // namespace ranges

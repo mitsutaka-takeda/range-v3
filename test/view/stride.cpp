@@ -14,13 +14,16 @@
 #include <sstream>
 #include <range/v3/core.hpp>
 #include <range/v3/istream_range.hpp>
-#include <range/v3/view/stride.hpp>
+#include <range/v3/view/move.hpp>
 #include <range/v3/view/reverse.hpp>
+#include <range/v3/view/stride.hpp>
 #include <range/v3/algorithm/copy.hpp>
+#include <range/v3/utility/counted_iterator.hpp>
 #include <range/v3/utility/iterator.hpp>
 #include <range/v3/numeric.hpp>
 #include "../simple_test.hpp"
 #include "../test_utils.hpp"
+#include "../test_iterators.hpp"
 
 int main()
 {
@@ -29,11 +32,10 @@ int main()
     std::vector<int> v(50);
     iota(v, 0);
 
-#if !defined(_MSC_VER) // MS ABI has limited EBO
-    static_assert(
-        sizeof((v|view::stride(3)).begin()) ==
-        sizeof(void*)+sizeof(v.begin())+sizeof(std::ptrdiff_t),"");
-#endif
+    if (!ranges::v3::detail::broken_ebo)
+        CHECK(
+            sizeof((v | view::stride(3)).begin()) ==
+            sizeof(void*) + sizeof(v.begin()) + sizeof(std::ptrdiff_t));
     ::check_equal(v | view::stride(3) | view::reverse,
                   {48, 45, 42, 39, 36, 33, 30, 27, 24, 21, 18, 15, 12, 9, 6, 3, 0});
 
@@ -65,6 +67,18 @@ int main()
     CHECK((it0 - it1) == -10);
     CHECK((it0 - it0) == 0);
     CHECK((it1 - it1) == 0);
+
+    {
+        const auto n = 4;
+        auto rng = v | view::move | view::stride(2);
+        CHECK((next(begin(rng), n) - begin(rng)) == n);
+    }
+
+    {
+        // Regression test #368
+        int n = 42;
+        (void)ranges::view::stride(n);
+    }
 
     return ::test_result();
 }

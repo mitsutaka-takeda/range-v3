@@ -37,7 +37,7 @@ namespace ranges
             using aux::move_fn::operator();
 
             template<typename I, typename S, typename O,
-                CONCEPT_REQUIRES_(InputIterator<I>() && IteratorRange<I, S>() &&
+                CONCEPT_REQUIRES_(InputIterator<I>() && Sentinel<S, I>() &&
                     WeaklyIncrementable<O>() && IndirectlyMovable<I, O>())>
             tagged_pair<tag::in(I), tag::out(O)> operator()(I begin, S end, O out) const
             {
@@ -47,10 +47,10 @@ namespace ranges
             }
 
             template<typename Rng, typename O,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(InputRange<Rng>() && WeaklyIncrementable<O>() &&
                     IndirectlyMovable<I, O>())>
-            tagged_pair<tag::in(range_safe_iterator_t<Rng>), tag::out(O)>
+            tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)>
             operator()(Rng &&rng, O out) const
             {
                 return (*this)(begin(rng), end(rng), std::move(out));
@@ -59,11 +59,7 @@ namespace ranges
 
         /// \sa `move_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& move = static_const<with_braced_init_args<move_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<move_fn>, move)
         /// @}
     } // namespace v3
 } // namespace ranges

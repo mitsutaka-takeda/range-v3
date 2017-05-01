@@ -32,30 +32,20 @@ namespace ranges
         /// @{
         struct max_fn
         {
-        private:
-            template<typename T, typename C, typename P>
-            constexpr const T& max2_impl(const T &a, const T &b, C&& pred, P&& proj) const
-            {
-                return !pred(proj(a), proj(b)) ? a : b;
-            }
-
-        public:
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>, typename V = iterator_value_t<I>,
+                typename I = iterator_t<Rng>, typename V = value_type_t<I>,
                 CONCEPT_REQUIRES_(InputRange<Rng>() && Copyable<V>() &&
-                    IndirectCallableRelation<C, Projected<I, P>>())>
-            RANGES_CXX14_CONSTEXPR V operator()(Rng &&rng, C pred_ = C{}, P proj_ = P{}) const
+                    IndirectRelation<C, projected<I, P>>())>
+            RANGES_CXX14_CONSTEXPR V operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
-                auto && pred = as_function(pred_);
-                auto && proj = as_function(proj_);
                 auto begin = ranges::begin(rng);
                 auto end = ranges::end(rng);
-                RANGES_ASSERT(begin != end);
+                RANGES_EXPECT(begin != end);
                 V result = *begin;
                 while(++begin != end)
                 {
                     auto && tmp = *begin;
-                    if(pred(proj(result), proj(tmp)))
+                    if(invoke(pred, invoke(proj, result), invoke(proj, tmp)))
                         result = (decltype(tmp) &&) tmp;
                 }
                 return result;
@@ -63,20 +53,16 @@ namespace ranges
 
             template<typename T, typename C = ordered_less, typename P = ident,
                 CONCEPT_REQUIRES_(
-                    IndirectCallableRelation<C, Projected<const T *, P>>())>
-            constexpr const T& operator()(const T &a, const T &b, C pred = C{}, P proj = P{}) const
+                    IndirectRelation<C, projected<const T *, P>>())>
+            constexpr T const &operator()(T const &a, T const &b, C pred = C{}, P proj = P{}) const
             {
-                return max2_impl(a, b, as_function(pred), as_function(proj));
+                return invoke(pred, invoke(proj, b), invoke(proj, a)) ? a : b;
             }
         };
 
         /// \sa `max_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& max = static_const<with_braced_init_args<max_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<max_fn>, max)
         /// @}
     } // namespace v3
 } // namespace ranges

@@ -29,7 +29,7 @@ namespace ranges
         struct fill_fn
         {
             template<typename O, typename S, typename V,
-                CONCEPT_REQUIRES_(OutputIterator<O, V const &>() && IteratorRange<O, S>())>
+                CONCEPT_REQUIRES_(OutputIterator<O, V const &>() && Sentinel<S, O>())>
             O operator()(O begin, S end, V const & val) const
             {
                 for(; begin != end; ++begin)
@@ -38,9 +38,9 @@ namespace ranges
             }
 
             template<typename Rng, typename V,
-                typename O = range_iterator_t<Rng>,
+                typename O = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(OutputRange<Rng, V const &>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, V const & val) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, V const & val) const
             {
                 return (*this)(begin(rng), end(rng), val);
             }
@@ -48,11 +48,7 @@ namespace ranges
 
         /// \sa `fill_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& fill = static_const<with_braced_init_args<fill_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<fill_fn>, fill)
         /// @}
     } // namespace v3
 } // namespace ranges

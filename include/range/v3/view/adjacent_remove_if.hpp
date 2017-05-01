@@ -16,12 +16,13 @@
 
 #include <utility>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/begin_end.hpp>
 #include <range/v3/view_adaptor.hpp>
+#include <range/v3/detail/optional.hpp>
 #include <range/v3/utility/iterator.hpp>
 #include <range/v3/utility/functional.hpp>
-#include <range/v3/utility/optional.hpp>
 #include <range/v3/utility/semiregular.hpp>
 #include <range/v3/utility/static_const.hpp>
 #include <range/v3/view/view.hpp>
@@ -41,22 +42,22 @@ namespace ranges
         {
         private:
             friend range_access;
-            semiregular_t<function_type<Pred>> pred_;
-            optional<range_iterator_t<Rng>> begin_;
+            semiregular_t<Pred> pred_;
+            detail::non_propagating_cache<iterator_t<Rng>> begin_;
 
             struct adaptor : adaptor_base
             {
             private:
                 adjacent_remove_if_view *rng_;
-                void satisfy(range_iterator_t<Rng> &it) const
+                void satisfy(iterator_t<Rng> &it) const
                 {
                     auto const end = ranges::end(rng_->mutable_base());
-                    auto &&pred = rng_->pred_;
+                    auto &pred = rng_->pred_;
                     if(it == end)
                         return;
                     auto next = it;
                     for(; ++next != end; it = next)
-                        if(!pred(*it, *next))
+                        if(!invoke(pred, *it, *next))
                             return;
                 }
             public:
@@ -64,7 +65,7 @@ namespace ranges
                 adaptor(adjacent_remove_if_view &rng)
                   : rng_(&rng)
                 {}
-                range_iterator_t<Rng> begin(adjacent_remove_if_view &) const
+                iterator_t<Rng> begin(adjacent_remove_if_view &) const
                 {
                     auto &beg = rng_->begin_;
                     if(!beg)
@@ -74,7 +75,7 @@ namespace ranges
                     }
                     return *beg;
                 }
-                void next(range_iterator_t<Rng> &it) const
+                void next(iterator_t<Rng> &it) const
                 {
                     RANGES_ASSERT(it != ranges::end(rng_->mutable_base()));
                     this->satisfy(++it);
@@ -92,30 +93,10 @@ namespace ranges
             }
         public:
             adjacent_remove_if_view() = default;
-            adjacent_remove_if_view(adjacent_remove_if_view const &that)
-              : view_adaptor_t<adjacent_remove_if_view>(that)
-              , pred_(that.pred_)
-              , begin_{}
-            {}
             adjacent_remove_if_view(Rng rng, Pred pred)
-              : view_adaptor_t<adjacent_remove_if_view>{std::move(rng)}
-              , pred_(as_function(std::move(pred)))
-              , begin_{}
+              : adjacent_remove_if_view::view_adaptor{std::move(rng)}
+              , pred_(std::move(pred))
             {}
-            adjacent_remove_if_view& operator=(adjacent_remove_if_view &&that)
-            {
-                this->view_adaptor_t<adjacent_remove_if_view>::operator=(std::move(that));
-                pred_ = std::move(that).pred_;
-                begin_.reset();
-                return *this;
-            }
-            adjacent_remove_if_view& operator=(adjacent_remove_if_view const &that)
-            {
-                this->view_adaptor_t<adjacent_remove_if_view>::operator=(that);
-                pred_ = that.pred_;
-                begin_.reset();
-                return *this;
-            }
        };
 
         namespace view
@@ -135,14 +116,14 @@ namespace ranges
                 template<typename Rng, typename Pred>
                 using Concept = meta::and_<
                     ForwardRange<Rng>,
-                    IndirectCallablePredicate<Pred, range_iterator_t<Rng>,
-                        range_iterator_t<Rng>>>;
+                    IndirectPredicate<Pred, iterator_t<Rng>,
+                        iterator_t<Rng>>>;
 
                 template<typename Rng, typename Pred,
                     CONCEPT_REQUIRES_(Concept<Rng, Pred>())>
                 adjacent_remove_if_view<all_t<Rng>, Pred> operator()(Rng && rng, Pred pred) const
                 {
-                    return {all(std::forward<Rng>(rng)), std::move(pred)};
+                    return {all(static_cast<Rng&&>(rng)), std::move(pred)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng, typename Pred,
@@ -151,9 +132,9 @@ namespace ranges
                 {
                     CONCEPT_ASSERT_MSG(ForwardRange<Rng>(),
                         "Rng must model the ForwardRange concept");
-                    CONCEPT_ASSERT_MSG(IndirectCallablePredicate<Pred, range_iterator_t<Rng>,
-                        range_iterator_t<Rng>>(),
-                        "Function Pred must be callable with two arguments of the range's common "
+                    CONCEPT_ASSERT_MSG(IndirectPredicate<Pred, iterator_t<Rng>,
+                        iterator_t<Rng>>(),
+                        "Pred must be callable with two arguments of the range's common "
                         "reference type, and it must return something convertible to bool.");
                 }
             #endif
@@ -161,13 +142,12 @@ namespace ranges
 
             /// \relates adjacent_remove_if_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& adjacent_remove_if = static_const<view<adjacent_remove_if_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<adjacent_remove_if_fn>, adjacent_remove_if)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::adjacent_remove_if_view)
 
 #endif

@@ -16,6 +16,7 @@
 
 #include <utility>
 #include <meta/meta.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/begin_end.hpp>
 #include <range/v3/view_adaptor.hpp>
@@ -42,7 +43,7 @@ namespace ranges
         {
         private:
             friend range_access;
-            semiregular_t<function_type<Pred>> pred_;
+            semiregular_t<Pred> pred_;
 
             struct adaptor : adaptor_base
             {
@@ -53,13 +54,13 @@ namespace ranges
                 adaptor(adjacent_filter_view const &rng)
                   : rng_(&rng)
                 {}
-                void next(range_iterator_t<Rng> &it) const
+                void next(iterator_t<Rng> &it) const
                 {
                     auto const end = ranges::end(rng_->mutable_base());
-                    auto &&pred = rng_->pred_;
-                    RANGES_ASSERT(it != end);
+                    auto &pred = rng_->pred_;
+                    RANGES_EXPECT(it != end);
                     for(auto prev = it; ++it != end; prev = it)
-                        if(pred(*prev, *it))
+                        if(invoke(pred, *prev, *it))
                             break;
                 }
                 void prev() = delete;
@@ -76,8 +77,8 @@ namespace ranges
         public:
             adjacent_filter_view() = default;
             adjacent_filter_view(Rng rng, Pred pred)
-              : view_adaptor_t<adjacent_filter_view>{std::move(rng)}
-              , pred_(as_function(std::move(pred)))
+              : adjacent_filter_view::view_adaptor{std::move(rng)}
+              , pred_(std::move(pred))
             {}
        };
 
@@ -98,14 +99,14 @@ namespace ranges
                 template<typename Rng, typename Pred>
                 using Concept = meta::and_<
                     ForwardRange<Rng>,
-                    IndirectCallablePredicate<Pred, range_iterator_t<Rng>,
-                        range_iterator_t<Rng>>>;
+                    IndirectPredicate<Pred, iterator_t<Rng>,
+                        iterator_t<Rng>>>;
 
                 template<typename Rng, typename Pred,
                     CONCEPT_REQUIRES_(Concept<Rng, Pred>())>
                 adjacent_filter_view<all_t<Rng>, Pred> operator()(Rng && rng, Pred pred) const
                 {
-                    return {all(std::forward<Rng>(rng)), std::move(pred)};
+                    return {all(static_cast<Rng&&>(rng)), std::move(pred)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng, typename Pred,
@@ -114,9 +115,9 @@ namespace ranges
                 {
                     CONCEPT_ASSERT_MSG(ForwardRange<Rng>(),
                         "Rng must model the ForwardRange concept");
-                    CONCEPT_ASSERT_MSG(IndirectCallablePredicate<Pred, range_iterator_t<Rng>,
-                        range_iterator_t<Rng>>(),
-                        "Function Pred must be callable with two arguments of the range's common "
+                    CONCEPT_ASSERT_MSG(IndirectPredicate<Pred, iterator_t<Rng>,
+                        iterator_t<Rng>>(),
+                        "Pred must be callable with two arguments of the range's common "
                         "reference type, and it must return something convertible to bool.");
                 }
             #endif
@@ -124,13 +125,12 @@ namespace ranges
 
             /// \relates adjacent_filter_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& adjacent_filter = static_const<view<adjacent_filter_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<adjacent_filter_fn>, adjacent_filter)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::adjacent_filter_view)
 
 #endif

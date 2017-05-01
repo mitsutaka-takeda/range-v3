@@ -39,7 +39,7 @@ namespace ranges
         using Mismatchable = meta::strict_and<
             InputIterator<I1>,
             InputIterator<I2>,
-            IndirectCallablePredicate<C, Projected<I1, P1>, Projected<I2, P2>>>;
+            IndirectPredicate<C, projected<I1, P1>, projected<I2, P2>>>;
 
         /// \addtogroup group-algorithms
         /// @{
@@ -47,58 +47,52 @@ namespace ranges
         {
             template<typename I1, typename S1, typename I2, typename C = equal_to,
                 typename P1 = ident, typename P2 = ident,
-                CONCEPT_REQUIRES_(Mismatchable<I1, I2, C, P1, P2>() && IteratorRange<I1, S1>())>
+                CONCEPT_REQUIRES_(Mismatchable<I1, I2, C, P1, P2>() && Sentinel<S1, I1>())>
             tagged_pair<tag::in1(I1), tag::in2(I2)>
-            operator()(I1 begin1, S1 end1, I2 begin2, C pred_ = C{}, P1 proj1_ = P1{},
-                P2 proj2_ = P2{}) const
+            operator()(I1 begin1, S1 end1, I2 begin2, C pred = C{}, P1 proj1 = P1{},
+                P2 proj2 = P2{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj1 = as_function(proj1_);
-                auto &&proj2 = as_function(proj2_);
                 for(; begin1 != end1; ++begin1, ++begin2)
-                    if(!pred(proj1(*begin1), proj2(*begin2)))
+                    if(!invoke(pred, invoke(proj1, *begin1), invoke(proj2, *begin2)))
                         break;
                 return {begin1, begin2};
             }
 
             template<typename I1, typename S1, typename I2, typename S2, typename C = equal_to,
                 typename P1 = ident, typename P2 = ident,
-                CONCEPT_REQUIRES_(Mismatchable<I1, I2, C, P1, P2>() && IteratorRange<I1, S1>() &&
-                    IteratorRange<I2, S2>())>
+                CONCEPT_REQUIRES_(Mismatchable<I1, I2, C, P1, P2>() && Sentinel<S1, I1>() &&
+                    Sentinel<S2, I2>())>
             tagged_pair<tag::in1(I1), tag::in2(I2)>
-            operator()(I1 begin1, S1 end1, I2 begin2, S2 end2, C pred_ = C{}, P1 proj1_ = P1{},
-                P2 proj2_ = P2{}) const
+            operator()(I1 begin1, S1 end1, I2 begin2, S2 end2, C pred = C{}, P1 proj1 = P1{},
+                P2 proj2 = P2{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj1 = as_function(proj1_);
-                auto &&proj2 = as_function(proj2_);
                 for(; begin1 != end1 &&  begin2 != end2; ++begin1, ++begin2)
-                    if(!pred(proj1(*begin1), proj2(*begin2)))
+                    if(!invoke(pred, invoke(proj1, *begin1), invoke(proj2, *begin2)))
                         break;
                 return {begin1, begin2};
             }
 
             template<typename Rng1, typename I2Ref, typename C = equal_to, typename P1 = ident,
                 typename P2 = ident,
-                typename I1 = range_iterator_t<Rng1>,
+                typename I1 = iterator_t<Rng1>,
                 typename I2 = uncvref_t<I2Ref>, // [*] See below
                 CONCEPT_REQUIRES_(InputRange<Rng1>() && Iterator<I2>() &&
                     Mismatchable<I1, I2, C, P1, P2>())>
-            tagged_pair<tag::in1(range_safe_iterator_t<Rng1>), tag::in2(I2)>
+            tagged_pair<tag::in1(safe_iterator_t<Rng1>), tag::in2(I2)>
             operator()(Rng1 &&rng1, I2Ref &&begin2, C pred = C{}, P1 proj1 = P1{},
                 P2 proj2 = P2{}) const
             {
-                return (*this)(begin(rng1), end(rng1), std::forward<I2>(begin2), std::move(pred),
+                return (*this)(begin(rng1), end(rng1), static_cast<I2&&>(begin2), std::move(pred),
                     std::move(proj1), std::move(proj2));
             }
 
             template<typename Rng1, typename Rng2, typename C = equal_to, typename P1 = ident,
                 typename P2 = ident,
-                typename I1 = range_iterator_t<Rng1>,
-                typename I2 = range_iterator_t<Rng2>,
+                typename I1 = iterator_t<Rng1>,
+                typename I2 = iterator_t<Rng2>,
                 CONCEPT_REQUIRES_(InputRange<Rng1>() && InputRange<Rng2>() &&
                     Mismatchable<I1, I2, C, P1, P2>())>
-            tagged_pair<tag::in1(range_safe_iterator_t<Rng1>), tag::in2(range_safe_iterator_t<Rng2>)>
+            tagged_pair<tag::in1(safe_iterator_t<Rng1>), tag::in2(safe_iterator_t<Rng2>)>
             operator()(Rng1 &&rng1, Rng2 &&rng2, C pred = C{}, P1 proj1 = P1{}, P2 proj2 = P2{}) const
             {
                 return (*this)(begin(rng1), end(rng1), begin(rng2), end(rng2), std::move(pred),
@@ -108,10 +102,7 @@ namespace ranges
 
         /// \sa `mismatch_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& mismatch = static_const<with_braced_init_args<mismatch_fn>>::value;
-        }
+        RANGES_INLINE_VARIABLE(with_braced_init_args<mismatch_fn>, mismatch)
 
         // [*] In this case, the 'begin2' iterator is taken by universal reference. Why? So
         // that we can properly distinguish this case:

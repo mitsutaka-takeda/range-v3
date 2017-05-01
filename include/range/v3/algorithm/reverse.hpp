@@ -54,7 +54,7 @@ namespace ranges
 
         public:
             template<typename I, typename S,
-                CONCEPT_REQUIRES_(BidirectionalIterator<I>() && IteratorRange<I, S>() && Permutable<I>())>
+                CONCEPT_REQUIRES_(BidirectionalIterator<I>() && Sentinel<S, I>() && Permutable<I>())>
             I operator()(I begin, S end_) const
             {
                 I end = ranges::next(begin, end_);
@@ -62,9 +62,9 @@ namespace ranges
                 return end;
             }
 
-            template<typename Rng, typename I = range_iterator_t<Rng>,
+            template<typename Rng, typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(BidirectionalRange<Rng>() && Permutable<I>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng) const
+            safe_iterator_t<Rng> operator()(Rng &&rng) const
             {
                 return (*this)(begin(rng), end(rng));
             }
@@ -72,11 +72,7 @@ namespace ranges
 
         /// \sa `reverse_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& reverse = static_const<with_braced_init_args<reverse_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<reverse_fn>, reverse)
         /// @}
     } // namespace v3
 } // namespace ranges

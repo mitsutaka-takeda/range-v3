@@ -19,6 +19,7 @@
 #include <utility>
 #include <type_traits>
 #include <initializer_list>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/view_interface.hpp>
 #include <range/v3/begin_end.hpp>
@@ -46,13 +47,13 @@ namespace ranges
             std::regex_constants::match_flag_type flags_;
         public:
             using iterator =
-                std::regex_token_iterator<range_iterator_t<Rng>>;
+                std::regex_token_iterator<iterator_t<Rng>>;
 
             tokenize_view() = default;
             tokenize_view(Rng rng, Regex && rex, SubMatchRange subs,
                 std::regex_constants::match_flag_type flags)
               : rng_(std::move(rng))
-              , rex_(std::forward<Regex>(rex))
+              , rex_(static_cast<Regex&&>(rex))
               , subs_(std::move(subs))
               , flags_(flags)
             {}
@@ -60,7 +61,7 @@ namespace ranges
             {
                 return {ranges::begin(rng_), ranges::end(rng_), rex_, subs_, flags_};
             }
-            CONCEPT_REQUIRES(View<Rng const>())
+            CONCEPT_REQUIRES(Range<Rng const &>())
             iterator begin() const
             {
                 return {ranges::begin(rng_), ranges::end(rng_), rex_, subs_, flags_};
@@ -91,10 +92,10 @@ namespace ranges
                 {
                     CONCEPT_ASSERT(BidirectionalRange<Rng>());
                     CONCEPT_ASSERT(BoundedRange<Rng>());
-                    static_assert(std::is_same<range_value_t<Rng>,
+                    static_assert(std::is_same<range_value_type_t<Rng>,
                         typename std::remove_reference<Regex>::type::value_type>::value,
                         "The character range and the regex have different character types");
-                    return {all(std::forward<Rng>(rng)), std::forward<Regex>(rex), sub,
+                    return {all(static_cast<Rng&&>(rng)), static_cast<Regex&&>(rex), sub,
                             flags};
                 }
 
@@ -106,10 +107,10 @@ namespace ranges
                 {
                     CONCEPT_ASSERT(BidirectionalRange<Rng>());
                     CONCEPT_ASSERT(BoundedRange<Rng>());
-                    static_assert(std::is_same<range_value_t<Rng>,
+                    static_assert(std::is_same<range_value_type_t<Rng>,
                         typename std::remove_reference<Regex>::type::value_type>::value,
                         "The character range and the regex have different character types");
-                    return {all(std::forward<Rng>(rng)), std::forward<Regex>(rex),
+                    return {all(static_cast<Rng&&>(rng)), static_cast<Regex&&>(rex),
                             std::move(subs), flags};
                 }
 
@@ -121,10 +122,10 @@ namespace ranges
                 {
                     CONCEPT_ASSERT(BidirectionalRange<Rng>());
                     CONCEPT_ASSERT(BoundedRange<Rng>());
-                    static_assert(std::is_same<range_value_t<Rng>,
+                    static_assert(std::is_same<range_value_type_t<Rng>,
                         typename std::remove_reference<Regex>::type::value_type>::value,
                         "The character range and the regex have different character types");
-                    return {all(std::forward<Rng>(rng)), std::forward<Regex>(rex),
+                    return {all(static_cast<Rng&&>(rng)), static_cast<Regex&&>(rex),
                             std::move(subs), flags};
                 }
 
@@ -174,41 +175,40 @@ namespace ranges
             public:
                 template<typename ...Args>
                 auto operator()(Args &&...args) const
-                    -> decltype(base()(std::forward<Args>(args)...))
+                    -> decltype(base()(static_cast<Args&&>(args)...))
                 {
-                    return base()(std::forward<Args>(args)...);
+                    return base()(static_cast<Args&&>(args)...);
                 }
 
                 template<typename Arg0, typename ...Args>
                 auto operator()(Arg0 && arg0, std::initializer_list<int> subs,
                     Args &&...args) const
-                    -> decltype(base()(std::forward<Arg0>(arg0), std::move(subs),
-                                       std::forward<Args>(args)...))
+                    -> decltype(base()(static_cast<Arg0&&>(arg0), std::move(subs),
+                                       static_cast<Args&&>(args)...))
                 {
-                    return base()(std::forward<Arg0>(arg0), std::move(subs),
-                                  std::forward<Args>(args)...);
+                    return base()(static_cast<Arg0&&>(arg0), std::move(subs),
+                                  static_cast<Args&&>(args)...);
                 }
 
                 template<typename Arg0, typename Arg1, typename ...Args>
                 auto operator()(Arg0 && arg0, Arg1 && arg1, std::initializer_list<int> subs,
                     Args &&...args) const
-                    -> decltype(base()(std::forward<Arg0>(arg0), std::forward<Arg1>(arg1),
-                                       std::move(subs), std::forward<Args>(args)...))
+                    -> decltype(base()(static_cast<Arg0&&>(arg0), static_cast<Arg1&&>(arg1),
+                                       std::move(subs), static_cast<Args&&>(args)...))
                 {
-                    return base()(std::forward<Arg0>(arg0), std::forward<Arg1>(arg1),
-                                  std::move(subs), std::forward<Args>(args)...);
+                    return base()(static_cast<Arg0&&>(arg0), static_cast<Arg1&&>(arg1),
+                                  std::move(subs), static_cast<Args&&>(args)...);
                 }
             };
 
             /// \relates tokenize_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& tokenize = static_const<tokenize_fn>::value;
-            }
+            RANGES_INLINE_VARIABLE(tokenize_fn, tokenize)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::tokenize_view)
 
 #endif

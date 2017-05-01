@@ -15,6 +15,7 @@
 #define RANGES_V3_VIEW_TAKE_EXACTLY_HPP
 
 #include <type_traits>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_traits.hpp>
 #include <range/v3/range_concepts.hpp>
@@ -44,34 +45,38 @@ namespace ranges
             template<typename Rng,
                 bool IsRandomAccessBounded /*= is_random_access_bounded_<Rng>::value*/>
             struct take_exactly_view_
-              : view_facade<take_exactly_view_<Rng, IsRandomAccessBounded>, finite>
+              : view_interface<take_exactly_view_<Rng, IsRandomAccessBounded>>
             {
             private:
                 friend range_access;
-                using difference_type_ = range_difference_t<Rng>;
+                using difference_type_ = range_difference_type_t<Rng>;
                 Rng rng_;
                 difference_type_ n_;
 
-                counted_cursor<range_iterator_t<Rng>> begin_cursor()
-                {
-                    return {ranges::begin(rng_), n_};
-                }
-                template<typename BaseRng = Rng,
-                    CONCEPT_REQUIRES_(Range<BaseRng const>())>
-                counted_cursor<range_iterator_t<BaseRng const>> begin_cursor() const
-                {
-                    return {ranges::begin(rng_), n_};
-                }
             public:
                 take_exactly_view_() = default;
                 take_exactly_view_(Rng rng, difference_type_ n)
                   : rng_(std::move(rng)), n_(n)
                 {
-                    RANGES_ASSERT(n >= 0);
+                    RANGES_EXPECT(n >= 0);
                 }
-                range_size_t<Rng> size() const
+                counted_iterator<iterator_t<Rng>> begin()
                 {
-                    return static_cast<range_size_t<Rng>>(n_);
+                    return {ranges::begin(rng_), n_};
+                }
+                template<typename BaseRng = Rng,
+                    CONCEPT_REQUIRES_(Range<BaseRng const>())>
+                counted_iterator<iterator_t<BaseRng const>> begin() const
+                {
+                    return {ranges::begin(rng_), n_};
+                }
+                default_sentinel end() const
+                {
+                    return {};
+                }
+                range_size_type_t<Rng> size() const
+                {
+                    return static_cast<range_size_type_t<Rng>>(n_);
                 }
                 Rng & base()
                 {
@@ -88,7 +93,7 @@ namespace ranges
               : view_interface<take_exactly_view_<Rng, true>, finite>
             {
             private:
-                using difference_type_ = range_difference_t<Rng>;
+                using difference_type_ = range_difference_type_t<Rng>;
                 Rng rng_;
                 difference_type_ n_;
             public:
@@ -96,31 +101,31 @@ namespace ranges
                 take_exactly_view_(Rng rng, difference_type_ n)
                   : rng_(std::move(rng)), n_(n)
                 {
-                    RANGES_ASSERT(n >= 0);
+                    RANGES_EXPECT(n >= 0);
                 }
-                range_iterator_t<Rng> begin()
+                iterator_t<Rng> begin()
                 {
                     return ranges::begin(rng_);
                 }
-                range_iterator_t<Rng> end()
+                iterator_t<Rng> end()
                 {
                     return next(ranges::begin(rng_), n_);
                 }
                 template<typename BaseRng = Rng,
                     CONCEPT_REQUIRES_(Range<BaseRng const>())>
-                range_iterator_t<BaseRng const> begin() const
+                iterator_t<BaseRng const> begin() const
                 {
                     return ranges::begin(rng_);
                 }
                 template<typename BaseRng = Rng,
                     CONCEPT_REQUIRES_(Range<BaseRng const>())>
-                range_iterator_t<BaseRng const> end() const
+                iterator_t<BaseRng const> end() const
                 {
                     return next(ranges::begin(rng_), n_);
                 }
-                range_size_t<Rng> size() const
+                range_size_type_t<Rng> size() const
                 {
-                    return static_cast<range_size_t<Rng>>(n_);
+                    return static_cast<range_size_type_t<Rng>>(n_);
                 }
                 Rng & base()
                 {
@@ -148,14 +153,14 @@ namespace ranges
 
                 template<typename Rng>
                 static take_exactly_view<all_t<Rng>>
-                invoke_(Rng && rng, range_difference_t<Rng> n, concepts::InputRange*)
+                invoke_(Rng && rng, range_difference_type_t<Rng> n, concepts::InputRange*)
                 {
-                    return {all(std::forward<Rng>(rng)), n};
+                    return {all(static_cast<Rng&&>(rng)), n};
                 }
                 template<typename Rng,
-                    CONCEPT_REQUIRES_(!View<Rng>() && std::is_lvalue_reference<Rng>())>
-                static iterator_range<range_iterator_t<Rng>>
-                invoke_(Rng && rng, range_difference_t<Rng> n, concepts::RandomAccessRange*)
+                    CONCEPT_REQUIRES_(!View<uncvref_t<Rng>>() && std::is_lvalue_reference<Rng>())>
+                static iterator_range<iterator_t<Rng>>
+                invoke_(Rng && rng, range_difference_type_t<Rng> n, concepts::RandomAccessRange*)
                 {
                     return {begin(rng), next(begin(rng), n)};
                 }
@@ -181,10 +186,10 @@ namespace ranges
             public:
                 template<typename Rng,
                     CONCEPT_REQUIRES_(InputRange<Rng>())>
-                auto operator()(Rng && rng, range_difference_t<Rng> n) const
+                auto operator()(Rng && rng, range_difference_type_t<Rng> n) const
                 RANGES_DECLTYPE_AUTO_RETURN
                 (
-                    take_exactly_fn::invoke_(std::forward<Rng>(rng), n, range_concept<Rng>{})
+                    take_exactly_fn::invoke_(static_cast<Rng&&>(rng), n, range_concept<Rng>{})
                 )
 
             #ifndef RANGES_DOXYGEN_INVOKED
@@ -203,13 +208,12 @@ namespace ranges
 
             /// \relates take_exactly_fn
             /// \ingroup group-views
-            namespace
-            {
-                constexpr auto&& take_exactly = static_const<view<take_exactly_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(view<take_exactly_fn>, take_exactly)
         }
         /// @}
     }
 }
+
+RANGES_SATISFY_BOOST_RANGE(::ranges::v3::detail::take_exactly_view_)
 
 #endif

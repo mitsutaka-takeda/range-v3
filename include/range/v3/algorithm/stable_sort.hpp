@@ -38,7 +38,6 @@
 
 #include <memory>
 #include <iterator>
-#include <algorithm>
 #include <functional>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/begin_end.hpp>
@@ -50,7 +49,8 @@
 #include <range/v3/utility/iterator_traits.hpp>
 #include <range/v3/utility/functional.hpp>
 #include <range/v3/utility/counted_iterator.hpp>
-#include <range/v3/algorithm/merge_move.hpp>
+#include <range/v3/algorithm/merge.hpp>
+#include <range/v3/algorithm/min.hpp>
 #include <range/v3/algorithm/sort.hpp>
 #include <range/v3/algorithm/inplace_merge.hpp>
 #include <range/v3/utility/static_const.hpp>
@@ -81,12 +81,16 @@ namespace ranges
                 D two_step = 2 * step_size;
                 while(end - begin >= two_step)
                 {
-                    result = std::get<2>(merge_move(begin, begin + step_size, begin + step_size,
-                        begin + two_step, result, std::ref(pred), std::ref(proj), std::ref(proj)));
+                    result = merge(make_move_iterator(begin),
+                        make_move_iterator(begin + step_size),
+                        make_move_iterator(begin + step_size),
+                        make_move_iterator(begin + two_step), result,
+                        std::ref(pred), std::ref(proj), std::ref(proj)).out();
                     begin += two_step;
                 }
-                step_size = std::min(D(end - begin), step_size);
-                merge_move(begin, begin + step_size, begin + step_size, end, result,
+                step_size = ranges::min(D(end - begin), step_size);
+                merge(make_move_iterator(begin), make_move_iterator(begin + step_size),
+                    make_move_iterator(begin + step_size), make_move_iterator(end), result,
                     std::ref(pred), std::ref(proj), std::ref(proj));
             }
 
@@ -108,16 +112,15 @@ namespace ranges
             template<typename I, typename V, typename C, typename P>
             static void merge_sort_with_buffer(I begin, I end, V *buffer, C &pred, P &proj)
             {
-                iterator_difference_t<I> len = end - begin, step_size = stable_sort_fn::merge_sort_chunk_size();
+                difference_type_t<I> len = end - begin, step_size = stable_sort_fn::merge_sort_chunk_size();
                 stable_sort_fn::chunk_insertion_sort(begin, end, step_size, pred, proj);
                 if(step_size >= len)
                     return;
                 // The first call to merge_sort_loop moves into raw storage. Construct on-demand
                 // and keep track of how many objects we need to destroy.
                 V *buffer_end = buffer + len;
-                std::unique_ptr<V, detail::destroy_n<V>> h{buffer, {}};
-                auto raw_buffer = ranges::make_counted_raw_storage_iterator(buffer, h.get_deleter());
-                stable_sort_fn::merge_sort_loop(begin, end, raw_buffer, step_size, pred, proj);
+                auto tmpbuf = make_raw_buffer(buffer);
+                stable_sort_fn::merge_sort_loop(begin, end, tmpbuf.begin(), step_size, pred, proj);
                 step_size *= 2;
             loop:
                 stable_sort_fn::merge_sort_loop(buffer, buffer_end, begin, step_size, pred, proj);
@@ -152,14 +155,12 @@ namespace ranges
         public:
             template<typename I, typename S, typename C = ordered_less, typename P = ident,
                 CONCEPT_REQUIRES_(Sortable<I, C, P>() && RandomAccessIterator<I>() &&
-                    IteratorRange<I, S>())>
-            I operator()(I begin, S end_, C pred_ = C{}, P proj_ = P{}) const
+                    Sentinel<S, I>())>
+            I operator()(I begin, S end_, C pred = C{}, P proj = P{}) const
             {
-                auto && pred = as_function(pred_);
-                auto && proj = as_function(proj_);
                 I end = ranges::next(begin, end_);
-                using D = iterator_difference_t<I>;
-                using V = iterator_value_t<I>;
+                using D = difference_type_t<I>;
+                using V = value_type_t<I>;
                 D len = end - begin;
                 auto buf = len > 256 ? std::get_temporary_buffer<V>(len) : detail::value_init{};
                 std::unique_ptr<V, detail::return_temporary_buffer> h{buf.first};
@@ -171,9 +172,9 @@ namespace ranges
             }
 
             template<typename Rng, typename C = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(Sortable<I, C, P>() && RandomAccessRange<Rng>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
+            safe_iterator_t<Rng> operator()(Rng &&rng, C pred = C{}, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(pred), std::move(proj));
             }
@@ -181,11 +182,7 @@ namespace ranges
 
         /// \sa `stable_sort_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& stable_sort = static_const<with_braced_init_args<stable_sort_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<stable_sort_fn>, stable_sort)
         /// @}
     } // namespace v3
 } // namespace ranges

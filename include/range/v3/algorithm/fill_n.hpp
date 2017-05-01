@@ -32,9 +32,9 @@ namespace ranges
         {
             template<typename O, typename V,
                 CONCEPT_REQUIRES_(OutputIterator<O, V const &>())>
-            O operator()(O begin, iterator_difference_t<O> n, V const & val) const
+            O operator()(O begin, difference_type_t<O> n, V const & val) const
             {
-                RANGES_ASSERT(n >= 0);
+                RANGES_EXPECT(n >= 0);
                 auto norig = n;
                 auto b = uncounted(begin);
                 for(; n != 0; ++b, --n)
@@ -45,11 +45,7 @@ namespace ranges
 
         /// \sa `fill_n_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& fill_n = static_const<fill_n_fn>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(fill_n_fn, fill_n)
         /// @}
     } // namespace v3
 } // namespace ranges

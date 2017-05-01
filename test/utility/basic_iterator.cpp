@@ -16,8 +16,6 @@
 #include "../simple_test.hpp"
 #include "../test_utils.hpp"
 
-#include <range/v3/utility/counted_iterator.hpp>
-
 namespace test_weak_input
 {
     template<typename I>
@@ -35,35 +33,38 @@ namespace test_weak_input
         template<class J, CONCEPT_REQUIRES_(ranges::ConvertibleTo<J, I>())>
         cursor(cursor<J> that) : it_(std::move(that.it_)) {}
 
-        auto get() const -> decltype(*it_) { return *it_; }
+        auto read() const -> decltype(*it_) { return *it_; }
         void next() { ++it_; }
     };
 
-    CONCEPT_ASSERT(ranges::detail::InputCursor<cursor<char*>>());
-    CONCEPT_ASSERT(!ranges::detail::HasEqualCursor<cursor<char*>>());
+    CONCEPT_ASSERT(ranges::detail::InputCursor<cursor<char *>>());
+    CONCEPT_ASSERT(!ranges::detail::CursorSentinel<cursor<char *>, cursor<char *>>());
 
     template<class I>
     using iterator = ranges::basic_iterator<cursor<I>>;
 
     static_assert(
         std::is_same<
-            iterator<char*>::iterator_category,
+            iterator<char *>::iterator_category,
             ranges::input_iterator_tag>::value,
         "");
     static_assert(
-        !ranges::EqualityComparable<iterator<char*>>(),
+        !ranges::EqualityComparable<iterator<char *>>(),
         "");
 
     void test()
     {
         using namespace ranges;
         using I = iterator<char const *>;
+        CONCEPT_ASSERT(std::is_same<std::iterator_traits<I>::pointer, char const *>());
 
-        static const char sz[] = "hello world";
+        static char const sz[] = "hello world";
         I i{sz};
         CHECK(*i == 'h');
+        CHECK(&*i == i.operator->());
         ++i;
         CHECK(*i == 'e');
+        CHECK(&*i == i.operator->());
     }
 }
 
@@ -84,26 +85,26 @@ namespace test_random_access
         template<class J, CONCEPT_REQUIRES_(ranges::ConvertibleTo<J, I>())>
         cursor(cursor<J> that) : it_(std::move(that.it_)) {}
 
-        auto get() const -> decltype(*it_) { return *it_; }
-        bool equal(cursor<I> const &that) const  { return that.it_ == it_; }
+        auto read() const -> decltype(*it_) { return *it_; }
+        bool equal(cursor<I> const &that) const { return that.it_ == it_; }
         void next() { ++it_; }
         void prev() { --it_; }
-        void advance(ranges::iterator_difference_t<I> n) {
+        void advance(ranges::difference_type_t<I> n) {
             it_ += n;
         }
-        ranges::iterator_difference_t<I> distance_to(cursor<I> const &that) const {
+        ranges::difference_type_t<I> distance_to(cursor<I> const &that) const {
             return that.it_ - it_;
         }
     };
 
-    CONCEPT_ASSERT(ranges::detail::RandomAccessCursor<cursor<char*>>());
+    CONCEPT_ASSERT(ranges::detail::RandomAccessCursor<cursor<char *>>());
 
     template<class I>
     using iterator = ranges::basic_iterator<cursor<I>>;
 
     static_assert(
         std::is_same<
-            iterator<char*>::iterator_category,
+            iterator<char *>::iterator_category,
             ranges::random_access_iterator_tag>::value,
         "");
 
@@ -111,9 +112,11 @@ namespace test_random_access
     {
         using namespace ranges;
 
-        iterator<char*> a(nullptr);
+        iterator<char *> a(nullptr);
         iterator<char const *> b(nullptr);
         iterator<char const *> c(a);
+
+        CONCEPT_ASSERT(std::is_same<std::iterator_traits<iterator<char *>>::pointer, char *>());
 
         b = a;
         bool d = a == b;
@@ -140,7 +143,7 @@ namespace test_weak_output
     private:
         friend ranges::range_access;
         I it_;
-        void set(ranges::iterator_value_t<I> v) const { *it_ = v; }
+        void write(ranges::value_type_t<I> v) const { *it_ = v; }
         void next() { ++it_; }
     public:
         struct mixin : ranges::basic_mixin<cursor>
@@ -153,19 +156,19 @@ namespace test_weak_output
         explicit cursor(I i) : it_(i) {}
     };
 
-    CONCEPT_ASSERT(ranges::detail::OutputCursor<cursor<char*>, char>());
-    CONCEPT_ASSERT(!ranges::detail::HasEqualCursor<cursor<char*>>());
+    CONCEPT_ASSERT(ranges::detail::OutputCursor<cursor<char *>, char>());
+    CONCEPT_ASSERT(!ranges::detail::CursorSentinel<cursor<char *>, cursor<char *>>());
 
     template<class I>
     using iterator = ranges::basic_iterator<cursor<I>>;
 
-    CONCEPT_ASSERT(ranges::OutputIterator<iterator<char*>, char>());
-    CONCEPT_ASSERT(!ranges::EqualityComparable<iterator<char*>>());
+    CONCEPT_ASSERT(ranges::OutputIterator<iterator<char *>, char>());
+    CONCEPT_ASSERT(!ranges::EqualityComparable<iterator<char *>>());
 
     void test()
     {
         char buf[10];
-        iterator<char*> i(buf);
+        iterator<char *> i(buf);
         *i = 'h';
         ++i;
         *i = 'e';
@@ -198,26 +201,29 @@ namespace test_output
         template<class J, CONCEPT_REQUIRES_(ranges::ConvertibleTo<J, I>())>
         cursor(cursor<J> that) : it_(std::move(that.it_)) {}
 
-        using value_type = ranges::iterator_value_t<I>;
-        value_type get() const { return *it_; }
-        void set(value_type v) const { *it_ = v; }
+        using value_type = ranges::value_type_t<I>;
+        value_type read() const { return *it_; }
+        void write(value_type v) const { *it_ = v; }
+        I arrow() const { return it_; }
         void next() { ++it_; }
         bool equal(cursor const &that) const { return it_ == that.it_; }
     };
 
-    CONCEPT_ASSERT(ranges::detail::OutputCursor<cursor<char*>, char>());
-    CONCEPT_ASSERT(ranges::detail::ForwardCursor<cursor<char*>>());
+    CONCEPT_ASSERT(ranges::detail::OutputCursor<cursor<char *>, char>());
+    CONCEPT_ASSERT(ranges::detail::ForwardCursor<cursor<char *>>());
 
     template<class I>
     using iterator = ranges::basic_iterator<cursor<I>>;
 
-    CONCEPT_ASSERT(ranges::OutputIterator<iterator<char*>, char>());
-    CONCEPT_ASSERT(ranges::ForwardIterator<iterator<char*>>());
+    CONCEPT_ASSERT(ranges::OutputIterator<iterator<char *>, char>());
+    CONCEPT_ASSERT(ranges::ForwardIterator<iterator<char *>>());
+
+    CONCEPT_ASSERT(std::is_same<std::iterator_traits<iterator<char *>>::pointer, char *>());
 
     void test()
     {
         char buf[10];
-        iterator<char*> i(buf);
+        iterator<char *> i(buf);
         *i = 'h';
         CHECK(*i == 'h');
         CHECK(*i == *i);
@@ -233,10 +239,10 @@ namespace test_output
         ++i;
         *i = '\0';
         CHECK(0 == std::strcmp(buf, "hello"));
-        CHECK(i == iterator<char*>{buf+5});
+        CHECK(i == iterator<char *>{buf+5});
         ++i;
-        CHECK(i != iterator<char*>{buf+5});
-        CHECK(i == iterator<char*>{buf+6});
+        CHECK(i != iterator<char *>{buf+5});
+        CHECK(i == iterator<char *>{buf+6});
     }
 }
 
@@ -266,30 +272,30 @@ namespace test_move_only
         template<class J, CONCEPT_REQUIRES_(ranges::ConvertibleTo<J, I>())>
         zip1_cursor(zip1_cursor<J> that) : it_(std::move(that.it_)) {}
 
-        using value_type = std::tuple<ranges::iterator_value_t<I>>;
-        using reference = ranges::common_tuple<ranges::iterator_reference_t<I>>;
-        using rvalue_reference = ranges::common_tuple<ranges::iterator_rvalue_reference_t<I>>;
-        reference get() const { return reference{*it_}; }
+        using value_type = std::tuple<ranges::value_type_t<I>>;
+        using reference = ranges::common_tuple<ranges::reference_t<I>>;
+        using rvalue_reference = ranges::common_tuple<ranges::rvalue_reference_t<I>>;
+        reference read() const { return reference{*it_}; }
         rvalue_reference move() const { return rvalue_reference{ranges::iter_move(it_)}; }
-        void set(reference const &v) const { reference{*it_} = v; }
-        void set(value_type&& v) const { reference{*it_} = std::move(v); }
+        void write(reference const &v) const { reference{*it_} = v; }
+        void write(value_type && v) const { reference{*it_} = std::move(v); }
         void next() { ++it_; }
         bool equal(zip1_cursor const &that) const { return it_ == that.it_; }
     };
 
-    CONCEPT_ASSERT(ranges::detail::OutputCursor<zip1_cursor<MoveOnly*>, std::tuple<MoveOnly>&&>());
-    CONCEPT_ASSERT(ranges::detail::ForwardCursor<zip1_cursor<MoveOnly*>>());
+    CONCEPT_ASSERT(ranges::detail::OutputCursor<zip1_cursor<MoveOnly *>, std::tuple<MoveOnly> &&>());
+    CONCEPT_ASSERT(ranges::detail::ForwardCursor<zip1_cursor<MoveOnly *>>());
 
     template<class I>
     using iterator = ranges::basic_iterator<zip1_cursor<I>>;
 
-    CONCEPT_ASSERT(ranges::OutputIterator<iterator<MoveOnly*>, std::tuple<MoveOnly>&&>());
-    CONCEPT_ASSERT(ranges::ForwardIterator<iterator<MoveOnly*>>());
+    CONCEPT_ASSERT(ranges::OutputIterator<iterator<MoveOnly *>, std::tuple<MoveOnly> &&>());
+    CONCEPT_ASSERT(ranges::ForwardIterator<iterator<MoveOnly *>>());
 
     void test()
     {
         MoveOnly buf[10] = {};
-        iterator<MoveOnly*> i(buf);
+        iterator<MoveOnly *> i(buf);
         *i = std::tuple<MoveOnly>{};
         ranges::common_tuple<MoveOnly&> x = *i; (void)x;
         std::tuple<MoveOnly> v = ranges::iter_move(i);
@@ -314,23 +320,23 @@ namespace test_forward_sized
         template<class J, CONCEPT_REQUIRES_(ranges::ConvertibleTo<J, I>())>
         cursor(cursor<J> that) : it_(std::move(that.it_)) {}
 
-        auto get() const -> decltype(*it_) { return *it_; }
-        bool equal(cursor<I> const &that) const  { return that.it_ == it_; }
+        auto read() const -> decltype(*it_) { return *it_; }
+        bool equal(cursor<I> const &that) const { return that.it_ == it_; }
         void next() { ++it_; }
-        ranges::iterator_difference_t<I> distance_to(cursor<I> const &that) const {
+        ranges::difference_type_t<I> distance_to(cursor<I> const &that) const {
             return that.it_ - it_;
         }
     };
 
-    CONCEPT_ASSERT(ranges::detail::SizedCursor<cursor<char*>>());
-    CONCEPT_ASSERT(ranges::detail::ForwardCursor<cursor<char*>>());
+    CONCEPT_ASSERT(ranges::detail::SizedCursorSentinel<cursor<char *>, cursor<char *>>());
+    CONCEPT_ASSERT(ranges::detail::ForwardCursor<cursor<char *>>());
 
     template<class I>
     using iterator = ranges::basic_iterator<cursor<I>>;
 
     static_assert(
         std::is_same<
-            iterator<char*>::iterator_category,
+            iterator<char *>::iterator_category,
             ranges::forward_iterator_tag>::value,
         "");
 
@@ -338,7 +344,7 @@ namespace test_forward_sized
     {
         using namespace ranges;
 
-        iterator<char*> a(nullptr);
+        iterator<char *> a(nullptr);
         iterator<char const *> b(nullptr);
         iterator<char const *> c(a);
 
@@ -359,6 +365,23 @@ namespace test_forward_sized
     }
 }
 
+void test_box()
+{
+    struct A : ranges::box<int> {};
+    CHECK(sizeof(A) == sizeof(int));
+    struct empty {};
+    struct B : ranges::box<empty> { int i; };
+    CHECK(sizeof(B) == sizeof(int));
+    B b1, b2;
+    if (ranges::detail::box_compression<empty>() == ranges::detail::box_compress::coalesce)
+        CHECK((&b1.get() == &b2.get()));
+    struct nontrivial { nontrivial() {} };
+    struct C : ranges::box<nontrivial> { int i; };
+    CHECK(sizeof(C) == sizeof(int));
+    C c1, c2;
+    CHECK((&c1.get() != &c2.get()));
+}
+
 int main()
 {
     using namespace ranges;
@@ -370,6 +393,7 @@ int main()
     ::test_output::test();
     ::test_move_only::test();
     ::test_forward_sized::test();
+    ::test_box();
 
     return ::test_result();
 }

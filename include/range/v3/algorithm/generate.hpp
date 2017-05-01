@@ -32,34 +32,32 @@ namespace ranges
         struct generate_fn
         {
             template<typename O, typename S, typename F,
-                CONCEPT_REQUIRES_(Function<F>() &&
-                    OutputIterator<O, concepts::Function::result_t<F> &&>() &&
-                    IteratorRange<O, S>())>
-            tagged_pair<tag::out(O), tag::fun(F)> operator()(O begin, S end, F fun) const
+                CONCEPT_REQUIRES_(Invocable<F&>() &&
+                    OutputIterator<O, result_of_t<F&()>>() &&
+                    Sentinel<S, O>())>
+            tagged_pair<tag::out(O), tag::fun(F)>
+            operator()(O begin, S end, F fun) const
             {
                 for(; begin != end; ++begin)
-                    *begin = fun();
-                return {begin, fun};
+                    *begin = invoke(fun);
+                return {detail::move(begin), detail::move(fun)};
             }
 
             template<typename Rng, typename F,
-                typename O = range_iterator_t<Rng>,
-                CONCEPT_REQUIRES_(Function<F>() &&
-                    OutputRange<Rng, concepts::Function::result_t<F> &&>())>
-            tagged_pair<tag::out(range_safe_iterator_t<Rng>), tag::fun(F)>
+                typename O = iterator_t<Rng>,
+                CONCEPT_REQUIRES_(Invocable<F&>() &&
+                    OutputRange<Rng, result_of_t<F&()>>())>
+            tagged_pair<tag::out(safe_iterator_t<Rng>), tag::fun(F)>
             operator()(Rng &&rng, F fun) const
             {
-                return (*this)(begin(rng), end(rng), std::move(fun));
+                return {(*this)(begin(rng), end(rng), ref(fun)).out(),
+                    detail::move(fun)};
             }
         };
 
         /// \sa `generate_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& generate = static_const<with_braced_init_args<generate_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<generate_fn>, generate)
         /// @}
     } // namespace v3
 } // namespace ranges

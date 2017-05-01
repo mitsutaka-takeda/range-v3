@@ -46,27 +46,23 @@ namespace ranges
             struct merge_n_with_buffer_fn
             {
                 template<typename I, typename B, typename C = ordered_less, typename P = ident,
-                    typename VI = iterator_common_reference_t<I>,
-                    typename VB = iterator_common_reference_t<B>,
+                    typename VI = iter_common_reference_t<I>,
+                    typename VB = iter_common_reference_t<B>,
                     CONCEPT_REQUIRES_(
                         Same<VI, VB>() &&
                         IndirectlyCopyable<I, B>() &&
                         Mergeable<B, I, I, C, P, P>()
                     )>
-                I operator()(I begin0, iterator_difference_t<I> n0,
-                             I begin1, iterator_difference_t<I> n1,
+                I operator()(I begin0, difference_type_t<I> n0,
+                             I begin1, difference_type_t<I> n1,
                              B buff, C r = C{}, P p = P{}) const
                 {
                     copy_n(begin0, n0, buff);
-                    return std::get<2>(merge_n(buff, n0, begin1, n1, begin0, r));
+                    return merge_n(buff, n0, begin1, n1, begin0, r, p, p).out();
                 }
             };
 
-            namespace
-            {
-                constexpr auto&& merge_n_with_buffer = static_const<merge_n_with_buffer_fn>::value;
-            }
-
+            RANGES_INLINE_VARIABLE(merge_n_with_buffer_fn, merge_n_with_buffer)
         } // namespace aux
     } // namespace v3
 } // namespace ranges

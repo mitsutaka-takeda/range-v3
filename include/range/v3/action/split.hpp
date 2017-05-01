@@ -44,7 +44,7 @@ namespace ranges
                     meta::if_c<
                         (bool) ranges::Container<Rng>(),
                         uncvref_t<Rng>,
-                        std::vector<range_value_t<Rng>>>;
+                        std::vector<range_value_type_t<Rng>>>;
             public:
                 // BUGBUG something is not right with the actions. It should be possible
                 // to move a container into a split and have elements moved into the result.
@@ -55,9 +55,16 @@ namespace ranges
                     return view::split(rng, std::move(fun))
                          | view::transform(to_<split_value_t<Rng>>()) | to_vector;
                 }
+                template<typename Rng, typename Fun,
+                    CONCEPT_REQUIRES_(view::split_fn::PredicateConcept<Rng, Fun>())>
+                std::vector<split_value_t<Rng>> operator()(Rng && rng, Fun fun) const
+                {
+                    return view::split(rng, std::move(fun))
+                         | view::transform(to_<split_value_t<Rng>>()) | to_vector;
+                }
                 template<typename Rng,
                     CONCEPT_REQUIRES_(view::split_fn::ElementConcept<Rng>())>
-                std::vector<split_value_t<Rng>> operator()(Rng && rng, range_value_t<Rng> val) const
+                std::vector<split_value_t<Rng>> operator()(Rng && rng, range_value_type_t<Rng> val) const
                 {
                     return view::split(rng, std::move(val))
                          | view::transform(to_<split_value_t<Rng>>()) | to_vector;
@@ -66,26 +73,28 @@ namespace ranges
                     CONCEPT_REQUIRES_(view::split_fn::SubRangeConcept<Rng, Sub>())>
                 std::vector<split_value_t<Rng>> operator()(Rng && rng, Sub && sub) const
                 {
-                    return view::split(rng, std::forward<Sub>(sub))
+                    return view::split(rng, static_cast<Sub&&>(sub))
                          | view::transform(to_<split_value_t<Rng>>()) | to_vector;
                 }
 
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Rng, typename T,
-                    CONCEPT_REQUIRES_(!ConvertibleTo<T, range_value_t<Rng>>())>
+                    CONCEPT_REQUIRES_(!ConvertibleTo<T, range_value_type_t<Rng>>())>
                 void operator()(Rng &&, T &&) const volatile
                 {
                     CONCEPT_ASSERT_MSG(ForwardRange<Rng>(),
                         "The object on which action::split operates must be a model of the "
                         "ForwardRange concept.");
-                    CONCEPT_ASSERT_MSG(ConvertibleTo<T, range_value_t<Rng>>(),
+                    CONCEPT_ASSERT_MSG(ConvertibleTo<T, range_value_type_t<Rng>>(),
                         "The delimiter argument to action::split must be one of the following: "
                         "(1) A single element of the range's value type, where the value type is a "
                         "model of the Regular concept, "
                         "(2) A ForwardRange whose value type is EqualityComparable to the input "
-                        "range's value type, or "
-                        "(3) A Function that is callable with two arguments: the range's iterator "
-                        "and sentinel, and that returns a std::pair<bool, D>, where D is the "
+                        "range's value type, "
+                        "(3) A Predicate that is callable with one argument of the range's reference "
+                        "type, or "
+                        "(4) An Invocable that accepts two arguments, the range's iterator "
+                        "and sentinel, and that returns a std::pair<bool, I> where I is the "
                         "input range's difference_type.");
                 }
             #endif
@@ -94,10 +103,7 @@ namespace ranges
             /// \ingroup group-actions
             /// \relates split_fn
             /// \sa action
-            namespace
-            {
-                constexpr auto&& split = static_const<action<split_fn>>::value;
-            }
+            RANGES_INLINE_VARIABLE(action<split_fn>, split)
         }
         /// @}
     }

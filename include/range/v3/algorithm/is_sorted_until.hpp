@@ -34,26 +34,24 @@ namespace ranges
             ///
             /// range-based version of the \c is_sorted_until std algorithm
             ///
-            /// Works on ForwardViews
+            /// Works on ForwardRanges
             ///
-            /// \pre `Rng` is a model of the `ForwardView` concept
+            /// \pre `Rng` is a model of the `ForwardRange` concept
             /// \pre `I` is a model of the `ForwardIterator` concept
-            /// \pre `S` is a model of the `Sentinel<I>` concept
-            /// \pre `R` is a model of the `Relation<Value_Type<I>>` concept
+            /// \pre `S` and `I` model the `Sentinel<S, I>` concept
+            /// \pre `R` and `projected<I, P>` model the `IndirectRelation<R, projected<I, P>>` concept
             ///
             template<typename I, typename S, typename R = ordered_less, typename P = ident,
-                CONCEPT_REQUIRES_(ForwardIterator<I>() && IteratorRange<I, S>() &&
-                    IndirectCallableRelation<R, Projected<I, P>>())>
-            I operator()(I begin, S end, R pred_ = R{}, P proj_ = P{}) const
+                CONCEPT_REQUIRES_(ForwardIterator<I>() && Sentinel<S, I>() &&
+                    IndirectRelation<R, projected<I, P>>())>
+            I operator()(I begin, S end, R pred = R{}, P proj = P{}) const
             {
-                auto &&pred = as_function(pred_);
-                auto &&proj = as_function(proj_);
                 auto i = begin;
                 if(begin != end)
                 {
                     while(++i != end)
                     {
-                        if(pred(proj(*i), proj(*begin)))
+                        if(invoke(pred, invoke(proj, *i), invoke(proj, *begin)))
                             return i;
                         begin = i;
                     }
@@ -62,10 +60,10 @@ namespace ranges
             }
 
             template<typename Rng, typename R = ordered_less, typename P = ident,
-                typename I = range_iterator_t<Rng>,
+                typename I = iterator_t<Rng>,
                 CONCEPT_REQUIRES_(ForwardRange<Rng>() &&
-                    IndirectCallableRelation<R, Projected<I, P>>())>
-            range_safe_iterator_t<Rng> operator()(Rng &&rng, R pred = R{}, P proj = P{}) const
+                    IndirectRelation<R, projected<I, P>>())>
+            safe_iterator_t<Rng> operator()(Rng &&rng, R pred = R{}, P proj = P{}) const
             {
                 return (*this)(begin(rng), end(rng), std::move(pred), std::move(proj));
             }
@@ -73,11 +71,8 @@ namespace ranges
 
         /// \sa `is_sorted_until_fn`
         /// \ingroup group-algorithms
-        namespace
-        {
-            constexpr auto&& is_sorted_until = static_const<with_braced_init_args<is_sorted_until_fn>>::value;
-        }
-
+        RANGES_INLINE_VARIABLE(with_braced_init_args<is_sorted_until_fn>,
+                               is_sorted_until)
         /// @}
     } // namespace v3
 } // namespace ranges
